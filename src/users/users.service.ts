@@ -410,6 +410,7 @@ export class UsersService {
         return {
           statusCode: HttpStatus.OK,
           message: 'User Verified Successfully',
+          data: findUser,
         };
       } else {
         return {
@@ -578,43 +579,64 @@ export class UsersService {
     }
   }
 
-  async getUsers() {
-    try {
-      const getusers = await this.userModel.aggregate([
-        {
-          $lookup: {
-            from: 'healthpreferences',
-            localField: 'prefId',
-            foreignField: 'health_preference',
-            as: 'health_preference',
+async getUsers() {
+  try {
+    const getusers = await this.userModel.aggregate([
+
+      // -------- HEALTH PREFERENCE LOOKUP --------
+      {
+        $lookup: {
+          from: 'healthpreferences',
+          localField: 'health_preference',     // user field
+          foreignField: 'prefId',               // lookup field
+          as: 'health_preference'
+        }
+      },
+
+      // -------- PROFESSIONAL DETAILS LOOKUP --------
+      {
+        $lookup: {
+          from: 'professionaldetails',
+          localField: 'professional_details',  // user field
+          foreignField: 'profId',               // lookup field
+          as: 'professional_details'
+        }
+      },
+
+      // -------- REMOVE EMPTY FIELDS --------
+      {
+        $addFields: {
+          health_preference: {
+            $cond: {
+              if: { $gt: [{ $size: "$health_preference" }, 0] },
+              then: { $arrayElemAt: ["$health_preference", 0] },
+              else: "$$REMOVE"
+            }
           },
-        },
-        {
-          $lookup: {
-            from: 'professionaldetails',
-            localField: 'profId',
-            foreignField: 'professional_details',
-            as: 'professional_details',
-          },
-        },
-      ]);
-      if (getusers.length > 0) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'List of Users',
-          data: getusers,
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'No users found',
-        };
+          professional_details: {
+            $cond: {
+              if: { $gt: [{ $size: "$professional_details" }, 0] },
+              then: { $arrayElemAt: ["$professional_details", 0] },
+              else: "$$REMOVE"
+            }
+          }
+        }
       }
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
-      };
-    }
+
+    ]);
+
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'List of Users',
+      data: getusers,
+    };
+
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error.message || error,
+    };
   }
+}
+
 }

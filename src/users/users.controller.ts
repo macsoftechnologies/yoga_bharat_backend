@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Post,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -20,6 +21,10 @@ import { userDto } from './dto/user.dto';
 import { clientDto } from './dto/client.dto';
 import { trainerEKYCDto } from './dto/trainer_ekyc.dto';
 import { trainerDto } from './dto/trainer.dto';
+import { JwtGuard } from 'src/auth/guards/jwt.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/guards/roles.decorator';
+import { Role } from 'src/auth/guards/roles.enum';
 
 @Controller('users')
 export class UsersController {
@@ -27,6 +32,8 @@ export class UsersController {
 
   // Starting of Health Preference APIs
 
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('/addhealthpreference')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -57,6 +64,7 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard)
   @Get('/healthpreferences')
   async getHealthPrefList() {
     try {
@@ -70,6 +78,7 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard)
   @Post('/healthpreferencebyid')
   async getHealthPrefById(@Body() req: healthPreferenceDto) {
     try {
@@ -83,6 +92,8 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('/updatehealthpreference')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -116,6 +127,8 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('/deletehealthpreference')
   async deletehealth(@Body() req: healthPreferenceDto) {
     try {
@@ -133,6 +146,8 @@ export class UsersController {
 
   // Starting of Professional Details APIs
 
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('/addprofessionaldetails')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -163,6 +178,7 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard)
   @Get('/professionaldetails')
   async getProfessionalDetailsList() {
     try {
@@ -176,6 +192,7 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard)
   @Post('/professionaldetailsbyid')
   async getProfessionalDetailsById(@Body() req: professional_detailsDto) {
     try {
@@ -189,6 +206,8 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('/updateprofessiondetails')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -220,6 +239,8 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('/deleteprofession')
   async deleteprofession(@Body() req: professional_detailsDto) {
     try {
@@ -322,6 +343,8 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Get('/list')
   async getUsersList() {
     try{

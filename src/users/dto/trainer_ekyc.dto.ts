@@ -3,11 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 export class trainerEKYCDto {
   @ApiProperty()
   userId: string
-  @ApiProperty({ type: [String] })
+  @ApiProperty({ required: false, type: [String] })
   certificates: string[];
-  @ApiProperty({ type: [String] })
+  @ApiProperty({ required: false, type: [String] })
   journey_images: string[];
-  @ApiProperty()
+  @ApiProperty({required: false,})
   yoga_video: string;
   @ApiProperty()
   recipient_name: string;
