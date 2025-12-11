@@ -579,64 +579,101 @@ export class UsersService {
     }
   }
 
-async getUsers() {
-  try {
-    const getusers = await this.userModel.aggregate([
+  async getUsers(page: number, limit: number) {
+    try {
+      const skip = (page - 1) * limit;
 
-      // -------- HEALTH PREFERENCE LOOKUP --------
-      {
-        $lookup: {
-          from: 'healthpreferences',
-          localField: 'health_preference',     // user field
-          foreignField: 'prefId',               // lookup field
-          as: 'health_preference'
-        }
-      },
+      // --- 1. Total count ---
+      const totalCount = await this.userModel.countDocuments();
 
-      // -------- PROFESSIONAL DETAILS LOOKUP --------
-      {
-        $lookup: {
-          from: 'professionaldetails',
-          localField: 'professional_details',  // user field
-          foreignField: 'profId',               // lookup field
-          as: 'professional_details'
-        }
-      },
-
-      // -------- REMOVE EMPTY FIELDS --------
-      {
-        $addFields: {
-          health_preference: {
-            $cond: {
-              if: { $gt: [{ $size: "$health_preference" }, 0] },
-              then: { $arrayElemAt: ["$health_preference", 0] },
-              else: "$$REMOVE"
-            }
+      // --- 2. Paginated aggregation ---
+      const getusers = await this.userModel.aggregate([
+        {
+          $lookup: {
+            from: 'healthpreferences',
+            localField: 'health_preference',
+            foreignField: 'prefId',
+            as: 'health_preference',
           },
-          professional_details: {
-            $cond: {
-              if: { $gt: [{ $size: "$professional_details" }, 0] },
-              then: { $arrayElemAt: ["$professional_details", 0] },
-              else: "$$REMOVE"
-            }
+        },
+        {
+          $lookup: {
+            from: 'professionaldetails',
+            localField: 'professional_details',
+            foreignField: 'profId',
+            as: 'professional_details',
+          },
+        },
+        {
+          $addFields: {
+            health_preference: {
+              $cond: {
+                if: { $gt: [{ $size: '$health_preference' }, 0] },
+                then: { $arrayElemAt: ['$health_preference', 0] },
+                else: '$$REMOVE',
+              },
+            },
+            professional_details: {
+              $cond: {
+                if: { $gt: [{ $size: '$professional_details' }, 0] },
+                then: { $arrayElemAt: ['$professional_details', 0] },
+                else: '$$REMOVE',
+              },
+            },
+          },
+        },
+        { $skip: skip },
+        { $limit: limit },
+      ]);
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of Users',
+        currentPage: page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        data: getusers,
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message || error,
+      };
+    }
+  }
+
+  async approveTrainer(req: trainerEKYCDto) {
+    try{
+      const findTrainer = await this.userModel.findOne({userId: req.userId});
+      if(findTrainer) {
+        const approvetrainer = await this.userModel.updateOne({userId: req.userId},{
+          $set: {
+            ekyc_status: EKYCstatus.APPROVED
+          }
+        });
+        if(approvetrainer) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: "Trainer EKYC Approved Successfully"
+          }
+        } else {
+          return {
+            statusCode: HttpStatus.EXPECTATION_FAILED,
+            message: "Failed to Approve Trainer EKYC"
           }
         }
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "Trainer Not Found"
+        }
       }
-
-    ]);
-
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'List of Users',
-      data: getusers,
-    };
-
-  } catch (error) {
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: error.message || error,
-    };
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      }
+    }
   }
-}
-
 }

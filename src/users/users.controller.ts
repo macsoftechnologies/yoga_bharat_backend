@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -346,10 +347,28 @@ export class UsersController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('/list')
-  async getUsersList() {
+  async getUsersList(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    try {
+      const getlist = await this.usersService.getUsers(+page, +limit);
+      return getlist;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/approvetrainer')
+  async aprroveTrainer(@Body() req: trainerEKYCDto) {
     try{
-      const getlist = await this.usersService.getUsers();
-      return getlist
+      const accepttrainer = await this.usersService.approveTrainer(req);
+      return accepttrainer
     } catch(error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
