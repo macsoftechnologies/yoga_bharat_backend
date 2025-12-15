@@ -9,7 +9,6 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { JwtService } from '@nestjs/jwt';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { LanguageModule } from './language/language.module';
 
 @Module({
   imports: [
@@ -23,14 +22,14 @@ import { LanguageModule } from './language/language.module';
     }),
     ConfigModule.forRoot({
       isGlobal: true, // makes config available everywhere
-      envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'], 
+      envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
     }),
     AdminModule,
     UsersModule,
-    LanguageModule,
   ],
   controllers: [AppController],
-  providers: [AppService,
+  providers: [
+    AppService,
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
