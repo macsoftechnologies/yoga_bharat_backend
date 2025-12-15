@@ -9,6 +9,11 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { JwtService } from '@nestjs/jwt';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { YogaModule } from './yoga/yoga.module';
+import { LanguageModule } from './language/language.module';
+import { SplashScreenModule } from './splash_screen/splash_screen.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { TermsModule } from './terms/terms.module';
 
 @Module({
   imports: [
@@ -26,6 +31,11 @@ import { UsersModule } from './users/users.module';
     }),
     AdminModule,
     UsersModule,
+    YogaModule,
+    LanguageModule,
+    SplashScreenModule,
+    PrivacyModule,
+    TermsModule,
   ],
   controllers: [AppController],
   providers: [
