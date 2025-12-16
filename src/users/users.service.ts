@@ -385,12 +385,27 @@ export class UsersService {
   // register user through otp
   async addUser(req: userDto) {
     try {
-      const add = await this.userModel.create(req);
-      if (add) {
+      const findUser = await this.userModel.findOne({
+        mobileNumber: req.mobileNumber,
+      });
+      if (findUser && (findUser.role == "trainer" || "client")) {
         return {
-          statusCode: HttpStatus.OK,
-          message: `User registered through mobile number ${req.mobileNumber}`,
+          statusCode: HttpStatus.NOT_ACCEPTABLE,
+          message: 'User already registered please login.',
         };
+      }else if(findUser && !findUser.role) {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: "Already Registered but verify otp and provide Details of your profile."
+        }
+      } else {
+        const add = await this.userModel.create(req);
+        if (add) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: `User registered through mobile number ${req.mobileNumber}`,
+          };
+        }
       }
     } catch (error) {
       return {
@@ -406,12 +421,21 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      if (findUser && req.otp == '1234') {
+      if (findUser && !findUser.role && req.otp == '1234') {
         return {
           statusCode: HttpStatus.OK,
           message: 'User Verified Successfully',
           data: findUser,
         };
+      }else if(findUser && (findUser.role == "trainer" || "client") && req.otp == '1234') {
+        const jwtToken = await this.authService.createToken({ findUser });
+          //   console.log(jwtToken);
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'User Login successfull',
+            token: jwtToken,
+            data: findUser,
+          };
       } else {
         return {
           statusCode: HttpStatus.EXPECTATION_FAILED,
@@ -442,12 +466,15 @@ export class UsersService {
         },
       );
       if (addclient) {
-        const findClient = await this.userModel.findOne({ userId: req.userId });
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'Client Registered successfully',
-          data: findClient,
-        };
+        const findUser = await this.userModel.findOne({ userId: req.userId });
+        const jwtToken = await this.authService.createToken({ findUser });
+          //   console.log(jwtToken);
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'User Login successfull',
+            token: jwtToken,
+            data: findUser,
+          };
       } else {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -491,10 +518,15 @@ export class UsersService {
         },
       );
       if (add) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'Trainer registered successfully.',
-        };
+        const findUser = await this.userModel.findOne({ userId: req.userId });
+        const jwtToken = await this.authService.createToken({ findUser });
+          //   console.log(jwtToken);
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'User Login successfull',
+            token: jwtToken,
+            data: findUser,
+          };
       } else {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -644,36 +676,39 @@ export class UsersService {
   }
 
   async approveTrainer(req: trainerEKYCDto) {
-    try{
-      const findTrainer = await this.userModel.findOne({userId: req.userId});
-      if(findTrainer) {
-        const approvetrainer = await this.userModel.updateOne({userId: req.userId},{
-          $set: {
-            ekyc_status: EKYCstatus.APPROVED
-          }
-        });
-        if(approvetrainer) {
+    try {
+      const findTrainer = await this.userModel.findOne({ userId: req.userId });
+      if (findTrainer) {
+        const approvetrainer = await this.userModel.updateOne(
+          { userId: req.userId },
+          {
+            $set: {
+              ekyc_status: EKYCstatus.APPROVED,
+            },
+          },
+        );
+        if (approvetrainer) {
           return {
             statusCode: HttpStatus.OK,
-            message: "Trainer EKYC Approved Successfully"
-          }
+            message: 'Trainer EKYC Approved Successfully',
+          };
         } else {
           return {
             statusCode: HttpStatus.EXPECTATION_FAILED,
-            message: "Failed to Approve Trainer EKYC"
-          }
+            message: 'Failed to Approve Trainer EKYC',
+          };
         }
       } else {
         return {
           statusCode: HttpStatus.NOT_FOUND,
-          message: "Trainer Not Found"
-        }
+          message: 'Trainer Not Found',
+        };
       }
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
-      }
+      };
     }
   }
 }
