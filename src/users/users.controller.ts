@@ -346,13 +346,31 @@ export class UsersController {
 
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  @Get('/list')
-  async getUsersList(
+  @Get('/clients')
+  async getClientsList(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
     try {
-      const getlist = await this.usersService.getUsers(+page, +limit);
+      const getlist = await this.usersService.getClients(+page, +limit);
+      return getlist;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('/trainers')
+  async getTrainersList(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    try {
+      const getlist = await this.usersService.getTrainers(+page, +limit);
       return getlist;
     } catch (error) {
       return {

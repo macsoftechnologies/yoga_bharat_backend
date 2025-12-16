@@ -611,15 +611,16 @@ export class UsersService {
     }
   }
 
-  async getUsers(page: number, limit: number) {
+  async getClients(page: number, limit: number) {
     try {
       const skip = (page - 1) * limit;
 
       // --- 1. Total count ---
-      const totalCount = await this.userModel.countDocuments();
+      const totalCount = await this.userModel.find({role: Role.CLIENT}).countDocuments();
 
       // --- 2. Paginated aggregation ---
       const getusers = await this.userModel.aggregate([
+        {$match: {role: Role.CLIENT}},
         {
           $lookup: {
             from: 'healthpreferences',
@@ -629,26 +630,18 @@ export class UsersService {
           },
         },
         {
-          $lookup: {
-            from: 'professionaldetails',
-            localField: 'professional_details',
-            foreignField: 'profId',
-            as: 'professional_details',
-          },
-        },
-        {
           $addFields: {
-            health_preference: {
+            certificates: {
               $cond: {
-                if: { $gt: [{ $size: '$health_preference' }, 0] },
-                then: { $arrayElemAt: ['$health_preference', 0] },
+                if: { $gt: [{ $size: '$certificates' }, 0] },
+                then: { $arrayElemAt: ['$certificates', 0] },
                 else: '$$REMOVE',
               },
             },
-            professional_details: {
+            journey_images: {
               $cond: {
-                if: { $gt: [{ $size: '$professional_details' }, 0] },
-                then: { $arrayElemAt: ['$professional_details', 0] },
+                if: { $gt: [{ $size: '$journey_images' }, 0] },
+                then: { $arrayElemAt: ['$journey_images', 0] },
                 else: '$$REMOVE',
               },
             },
@@ -660,7 +653,46 @@ export class UsersService {
 
       return {
         statusCode: HttpStatus.OK,
-        message: 'List of Users',
+        message: 'List of Clients',
+        currentPage: page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        data: getusers,
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message || error,
+      };
+    }
+  }
+
+  async getTrainers(page: number, limit: number) {
+    try {
+      const skip = (page - 1) * limit;
+
+      // --- 1. Total count ---
+      const totalCount = await this.userModel.find({role: Role.TRAINER}).countDocuments();
+
+      // --- 2. Paginated aggregation ---
+      const getusers = await this.userModel.aggregate([
+        {$match: {role: Role.TRAINER}},
+        {
+          $lookup: {
+            from: 'yogas',
+            localField: 'professional_details',
+            foreignField: 'yogaId',
+            as: 'professional_details',
+          },
+        },
+        { $skip: skip },
+        { $limit: limit },
+      ]);
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of Trainers',
         currentPage: page,
         limit,
         totalCount,
