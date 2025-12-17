@@ -105,7 +105,15 @@ export class ApptutorialService {
       }
 
       if (image) {
-        const reqDoc = image.map((doc, index) => doc.filename);
+        const reqDoc = image.map((doc, index) => {
+          let IsPrimary = false;
+          if (index == 0) {
+            IsPrimary = true;
+          }
+          const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+          return doc.filename;
+        });
+
         req.app_image = reqDoc.toString();
       }
 

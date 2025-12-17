@@ -4,26 +4,31 @@ import { Model } from 'mongoose';
 // import { AuthService } from 'src/auth/auth.service';
 import { YogaDetails } from './schema/yoga_details.schema';
 import { yogaDetailsDto } from './dto/yoga_details.dto';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class YogaService {
   constructor(
     @InjectModel(YogaDetails.name)
     private readonly yogaModel: Model<YogaDetails>,
+    private readonly authService: AuthService
   ) {}
   async addYoga(req: yogaDetailsDto, image) {
     try {
       if (image) {
-        const reqDoc = image.map((doc, index) => {
-          let IsPrimary = false;
-          if (index == 0) {
-            IsPrimary = true;
+        if (image.yoga_image && image.yoga_image[0]) {
+            const attachmentFile = await this.authService.saveFile(
+              image.yoga_image[0],
+            );
+            req.yoga_image = attachmentFile;
           }
-          const randomNumber = Math.floor(Math.random() * 1000000 + 1);
-          return doc.filename;
-        });
+          if (image.yoga_icon && image.yoga_icon[0]) {
+            const attachmentFile = await this.authService.saveFile(
+              image.yoga_icon[0],
+            );
 
-        req.yoga_image = reqDoc.toString();
+            req.yoga_icon = attachmentFile;
+          }
       }
       const add = await this.yogaModel.create(req);
       if (add) {
@@ -94,16 +99,19 @@ export class YogaService {
       const findYoga = await this.yogaModel.findOne({ yogaId: req.yogaId });
       if (findYoga) {
         if (image) {
-          const reqDoc = image.map((doc, index) => {
-            let IsPrimary = false;
-            if (index == 0) {
-              IsPrimary = true;
-            }
-            const randomNumber = Math.floor(Math.random() * 1000000 + 1);
-            return doc.filename;
-          });
+          if (image.yoga_image && image.yoga_image[0]) {
+            const attachmentFile = await this.authService.saveFile(
+              image.yoga_image[0],
+            );
+            req.yoga_image = attachmentFile;
+          }
+          if (image.yoga_icon && image.yoga_icon[0]) {
+            const attachmentFile = await this.authService.saveFile(
+              image.yoga_icon[0],
+            );
 
-          req.yoga_image = reqDoc.toString();
+            req.yoga_icon = attachmentFile;
+          }
         }
         if (req.yoga_image) {
           const updateyoga = await this.yogaModel.updateOne(
@@ -112,6 +120,9 @@ export class YogaService {
               $set: {
                 yoga_name: req.yoga_name,
                 yoga_image: req.yoga_image,
+                yoga_desc: req.yoga_desc,
+                client_price: req.client_price,
+                trainer_price: req.trainer_price
               },
             },
           );
@@ -127,12 +138,69 @@ export class YogaService {
               message: 'Failed to update health preference',
             };
           }
-        } else {
+        } 
+        if (req.yoga_icon) {
           const updateyoga = await this.yogaModel.updateOne(
             { yogaId: req.yogaId },
             {
               $set: {
                 yoga_name: req.yoga_name,
+                yoga_icon: req.yoga_icon,
+                yoga_desc: req.yoga_desc,
+                client_price: req.client_price,
+                trainer_price: req.trainer_price
+              },
+            },
+          );
+          if (updateyoga) {
+            return {
+              statusCode: HttpStatus.OK,
+              message: 'Health Preference updated successfully',
+              data: updateyoga,
+            };
+          } else {
+            return {
+              statusCode: HttpStatus.EXPECTATION_FAILED,
+              message: 'Failed to update health preference',
+            };
+          }
+        } 
+        if (req.yoga_icon && req.yoga_name) {
+          const updateyoga = await this.yogaModel.updateOne(
+            { yogaId: req.yogaId },
+            {
+              $set: {
+                yoga_name: req.yoga_name,
+                yoga_icon: req.yoga_icon,
+                yoga_image: req.yoga_image,
+                yoga_desc: req.yoga_desc,
+                client_price: req.client_price,
+                trainer_price: req.trainer_price
+              },
+            },
+          );
+          if (updateyoga) {
+            return {
+              statusCode: HttpStatus.OK,
+              message: 'Health Preference updated successfully',
+              data: updateyoga,
+            };
+          } else {
+            return {
+              statusCode: HttpStatus.EXPECTATION_FAILED,
+              message: 'Failed to update health preference',
+            };
+          }
+        } 
+
+          const updateyoga = await this.yogaModel.updateOne(
+            { yogaId: req.yogaId },
+            {
+              $set: {
+                yoga_name: req.yoga_name,
+                yoga_desc: req.yoga_desc,
+                client_price: req.client_price,
+                trainer_price: req.trainer_price
               },
             },
           );
@@ -148,7 +216,6 @@ export class YogaService {
               message: 'Failed to update Yoga Details',
             };
           }
-        }
       }
     } catch (error) {
       return {

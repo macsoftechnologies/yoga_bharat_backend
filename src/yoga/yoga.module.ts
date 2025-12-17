@@ -3,6 +3,8 @@ import { YogaService } from './yoga.service';
 import { YogaController } from './yoga.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { YogaDetails, yogaDetailsSchema } from './schema/yoga_details.schema';
+import { AuthService } from 'src/auth/auth.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -11,6 +13,6 @@ import { YogaDetails, yogaDetailsSchema } from './schema/yoga_details.schema';
     ]),
   ],
   controllers: [YogaController],
-  providers: [YogaService],
+  providers: [YogaService, AuthService, JwtService],
 })
 export class YogaModule {}

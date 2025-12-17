@@ -33,7 +33,7 @@ export class TermsService {
   }
   async getterms() {
     try {
-      const list = await this.termsModel.find().exec();
+      const list = await this.termsModel.find();
 
       if (list) {
         return {
@@ -54,9 +54,9 @@ export class TermsService {
       };
     }
   }
-  async termsByID(termsId: string) {
+  async termsByID(req: termsDto) {
     try {
-      const byid = await this.termsModel.findOne({ termsId }).exec();
+      const byid = await this.termsModel.findOne({ termsId: req.termsId });
       if (byid) {
         return {
           statusCode: HttpStatus.OK,
@@ -78,13 +78,12 @@ export class TermsService {
   }
   async updateTerms(req: termsDto) {
     try {
-      const update = await this.termsModel
-        .findOneAndUpdate(
-          { termsId: req.termsId },
-          { $set: req },
-          { new: true },
-        )
-        .exec();
+      const update = await this.termsModel.updateOne({termsId: req.termsId}, {
+        $set: {
+          text: req.text,
+          usertype: req.usertype
+        }
+      });;
       if (update) {
         return {
           statusCode: HttpStatus.OK,
@@ -104,9 +103,9 @@ export class TermsService {
       };
     }
   }
-  async deleteTerms(termsId: string) {
+  async deleteTerms(req: termsDto) {
     try {
-      const del = await this.termsModel.findOneAndDelete({ termsId }).exec();
+      const del = await this.termsModel.deleteOne({termsId: req.termsId});
       if (del) {
         return {
           statusCode: HttpStatus.OK,

@@ -27,20 +27,12 @@ export class YogaController {
   constructor(private readonly yogaService: YogaService) {}
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  @Post('/addyogadetails')
+  @Post('/add')
   @UseInterceptors(
-    AnyFilesInterceptor({
-      storage: diskStorage({
-        destination: './files',
-        filename: (req, file, cb) => {
-          const randomName = Array(32)
-            .fill(null)
-            .map(() => Math.round(Math.random() * 16).toString(16))
-            .join('');
-          cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
+    FileFieldsInterceptor([
+      { name: 'yoga_image' },
+      { name: 'yoga_icon' },
+    ]),
   )
   async addYogaDetails(@Body() req: yogaDetailsDto, @UploadedFiles() image) {
     try {
@@ -54,7 +46,7 @@ export class YogaController {
     }
   }
   @UseGuards(JwtGuard)
-  @Get('/yogadetails')
+  @Get('/list')
   async getYogaList() {
     try {
       const getlist = await this.yogaService.getYogaAll();
@@ -81,20 +73,12 @@ export class YogaController {
   }
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  @Post('/updateyogadetails')
+  @Post('/update')
   @UseInterceptors(
-    AnyFilesInterceptor({
-      storage: diskStorage({
-        destination: './files',
-        filename: (req, file, cb) => {
-          const randomName = Array(32)
-            .fill(null)
-            .map(() => Math.round(Math.random() * 16).toString(16))
-            .join('');
-          cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
+    FileFieldsInterceptor([
+      { name: 'yoga_image' },
+      { name: 'yoga_icon' },
+    ]),
   )
   async editYogaDetail(@Body() req: yogaDetailsDto, @UploadedFiles() image) {
     try {
@@ -112,7 +96,7 @@ export class YogaController {
   }
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  @Post('/deleteyogadetails')
+  @Post('/delete')
   async deleteyoga(@Body() req: yogaDetailsDto) {
     try {
       const removeyoga = await this.yogaService.deleteYoga(req);

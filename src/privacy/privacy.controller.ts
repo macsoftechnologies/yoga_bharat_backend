@@ -8,17 +8,17 @@ import {
 } from '@nestjs/common';
 import { PrivacyService } from './privacy.service';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
-// // import { RolesGuard } from 'src/auth/guards/roles.guard';
-// import { Roles } from 'src/auth/guards/roles.decorator';
-// import { Role } from 'src/auth/guards/roles.enum';
 import { privacyDto } from './tdo/privacy.dto';
+import { Roles } from 'src/auth/guards/roles.decorator';
+import { Role } from 'src/auth/guards/roles.enum';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Controller('privacy')
 export class PrivacyController {
   constructor(private readonly privacyService: PrivacyService) {}
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/addprivacy')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/add')
   async addprivacy(@Body() req: privacyDto) {
     try {
       const add = await this.privacyService.addprivacy(req);
@@ -32,7 +32,7 @@ export class PrivacyController {
   }
   @UseGuards(JwtGuard)
   // @Roles(Role.ADMIN)
-  @Get('/getprivacy')
+  @Get('/list')
   async getPrivacy() {
     try {
       const list = await this.privacyService.getPrivacy();
@@ -47,9 +47,9 @@ export class PrivacyController {
   @UseGuards(JwtGuard)
   // @Roles(Role.ADMIN)
   @Post('/privacybyid')
-  async privacyByID(@Body('privacyId') id: string) {
+  async privacyByID(@Body() req: privacyDto) {
     try {
-      const byid = await this.privacyService.privacyById(id);
+      const byid = await this.privacyService.privacyById(req);
       return byid;
     } catch (error) {
       return {
@@ -58,9 +58,9 @@ export class PrivacyController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/updateprivacy')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/update')
   async updatePrivacy(@Body() req: privacyDto) {
     try {
       const update = await this.privacyService.updatePrivacy(req);
@@ -72,12 +72,12 @@ export class PrivacyController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/deleteprivacy')
-  async deletePrivacy(@Body('privacyId') id: string) {
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/delete')
+  async deletePrivacy(@Body() req: privacyDto) {
     try {
-      const del = await this.privacyService.deletePrivacy(id);
+      const del = await this.privacyService.deletePrivacy(req);
       return del;
     } catch (error) {
       return {

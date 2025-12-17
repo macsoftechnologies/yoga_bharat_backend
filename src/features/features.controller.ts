@@ -8,7 +8,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-// import { Controller } from '@nestjs/common';
 import {
   AnyFilesInterceptor,
   FileFieldsInterceptor,
@@ -16,18 +15,18 @@ import {
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
-// import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Role } from 'src/auth/guards/roles.enum';
 import { Roles } from 'src/auth/guards/roles.decorator';
 import { FeaturesService } from './features.service';
 import { featuresDto } from './dto/features.dto';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Controller('feature')
 export class FeaturesController {
   constructor(private readonly FeaturesService: FeaturesService) {}
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/addfeatures')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/add')
   @UseInterceptors(
     AnyFilesInterceptor({
       storage: diskStorage({
@@ -54,7 +53,7 @@ export class FeaturesController {
     }
   }
   @UseGuards(JwtGuard)
-  @Get('/features')
+  @Get('/list')
   async getFeatureList() {
     try {
       const getlist = await this.FeaturesService.getFeatureList();
@@ -67,7 +66,7 @@ export class FeaturesController {
     }
   }
   @UseGuards(JwtGuard)
-  @Post('/featurebyid')
+  @Post('/bannerbyid')
   async getFeaturesById(@Body() req: featuresDto) {
     try {
       const getfeatures = await this.FeaturesService.getFeaturesById(req);
@@ -79,22 +78,10 @@ export class FeaturesController {
       };
     }
   }
-  // @UseGuards(JwtGuard)
-  // @Post('/featurebyid')
-  // async getFeaturesById(@Body() req: featuresDto) {
-  //   try {
-  //     const getfeatures = await this.FeaturesService.getFeaturesById(req);
-  //     return getfeatures;
-  //   } catch (error) {
-  //     return {
-  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-  //       message: error,
-  //     };
-  //   }
-  // }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/updatefeatures')
+
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/update')
   @UseInterceptors(
     AnyFilesInterceptor({
       storage: diskStorage({
@@ -123,9 +110,9 @@ export class FeaturesController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/deletefeatures')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/delete')
   async deletefeatues(@Body() req: featuresDto) {
     try {
       const removefeature = await this.FeaturesService.deletefeatues(req);

@@ -67,30 +67,7 @@ export class FeaturesService {
       };
     }
   }
-  // async getFeaturesById(req: featuresDto) {
-  //   try {
-  //     const getfeatures = await this.featureModel.findOne({
-  //       featureId: req.featureId,
-  //     });
-  //     if (getfeatures) {
-  //       return {
-  //         statusCode: HttpStatus.OK,
-  //         message: 'Requested Feature Details',
-  //         data: getfeatures,
-  //       };
-  //     } else {
-  //       return {
-  //         statusCode: HttpStatus.NOT_FOUND,
-  //         message: 'Feature Details Not Found',
-  //       };
-  //     }
-  //   } catch (error) {
-  //     return {
-  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-  //       message: error,
-  //     };
-  //   }
-  // }
+
   async getFeaturesById(req: featuresDto) {
     try {
       const getfeatures = await this.featureModel.findOne({
@@ -129,7 +106,15 @@ export class FeaturesService {
       }
 
       if (image) {
-        const reqDoc = image.map((doc, index) => doc.filename); // just filenames
+       const reqDoc = image.map((doc, index) => {
+          let IsPrimary = false;
+          if (index == 0) {
+            IsPrimary = true;
+          }
+          const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+          return doc.filename;
+        });
+
         req.feature_image = reqDoc.toString();
       }
 

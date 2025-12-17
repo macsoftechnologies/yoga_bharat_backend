@@ -8,18 +8,18 @@ import {
 } from '@nestjs/common';
 import { SplashScreenService } from './splash_screen.service';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
-// import { RolesGuard } from 'src/auth/guards/roles.guard';
-// import { Roles } from 'src/auth/guards/roles.decorator';
-// import { Role } from 'src/auth/guards/roles.enum';
 import { splashScreenDto } from './dto/splash_screen.dto';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Role } from 'src/auth/guards/roles.enum';
+import { Roles } from 'src/auth/guards/roles.decorator';
 
 @Controller('splashscreen')
 export class SplashScreenController {
   constructor(private readonly splashScreenService: SplashScreenService) {}
 
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/addsplash')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/add')
   async addSplashScreen(@Body() req: splashScreenDto) {
     try {
       const add = await this.splashScreenService.addSplashScreen(req);
@@ -33,8 +33,7 @@ export class SplashScreenController {
     }
   }
   @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Get('/getlist')
+  @Get('/list')
   async getSplashScreenList() {
     try {
       const list = await this.splashScreenService.getSplashScreenList();
@@ -47,11 +46,10 @@ export class SplashScreenController {
     }
   }
   @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/getSplashbyid')
-  async getSplashScreenById(@Body('splashscreenId') id: string) {
+  @Post('/screentextbyid')
+  async getSplashScreenById(@Body() req: splashScreenDto) {
     try {
-      const splash = await this.splashScreenService.getSplashScreenById(id);
+      const splash = await this.splashScreenService.getSplashScreenById(req);
       return splash;
     } catch (error) {
       return {
@@ -60,9 +58,9 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/updatesplash')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/update')
   async updateSplashScreen(@Body() req: splashScreenDto) {
     try {
       const update = await this.splashScreenService.updateSplashScreen(req);
@@ -74,12 +72,12 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/deletesplash')
-  async deleteSplashScreen(@Body('splashscreenId') id: string) {
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/delete')
+  async deleteSplashScreen(@Body() req: splashScreenDto) {
     try {
-      const del = await this.splashScreenService.deleteSplashScreen(id);
+      const del = await this.splashScreenService.deleteSplashScreen(req);
       return del;
     } catch (error) {
       return {

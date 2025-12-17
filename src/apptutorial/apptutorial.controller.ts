@@ -8,15 +8,13 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-// import { Controller } from '@nestjs/common';
 import {
-  AnyFilesInterceptor,
-  FileFieldsInterceptor,
+  AnyFilesInterceptor
 } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
-// import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Role } from 'src/auth/guards/roles.enum';
 import { Roles } from 'src/auth/guards/roles.decorator';
 import { ApptutorialService } from './apptutorial.service';
@@ -25,9 +23,9 @@ import { apptutorialDto } from './dto/apptutorial.dto';
 @Controller('apptutorial')
 export class ApptutorialController {
   constructor(private readonly ApptutorialService: ApptutorialService) {}
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/addtutorial')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/add')
   @UseInterceptors(
     AnyFilesInterceptor({
       storage: diskStorage({
@@ -54,7 +52,7 @@ export class ApptutorialController {
     }
   }
   @UseGuards(JwtGuard)
-  @Get('/apptutorial')
+  @Get('/list')
   async getAppTutoiral() {
     try {
       const getlist = await this.ApptutorialService.getAppTutoiral();
@@ -67,7 +65,7 @@ export class ApptutorialController {
     }
   }
   @UseGuards(JwtGuard)
-  @Post('/apptutorialbyid')
+  @Post('/tutorialbyid')
   async getAppbyId(@Body() req: apptutorialDto) {
     try {
       const getapptut = await this.ApptutorialService.getAppbyId(req);
@@ -79,9 +77,9 @@ export class ApptutorialController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/updateapp')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/update')
   @UseInterceptors(
     AnyFilesInterceptor({
       storage: diskStorage({
@@ -107,9 +105,9 @@ export class ApptutorialController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
-  @Post('/deletetutorial')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/delete')
   async deletetutorial(@Body() req: apptutorialDto) {
     try {
       const removetutorial = await this.ApptutorialService.deletetutorial(req);

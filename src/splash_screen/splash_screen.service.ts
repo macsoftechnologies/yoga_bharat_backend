@@ -34,7 +34,7 @@ export class SplashScreenService {
   }
   async getSplashScreenList() {
     try {
-      const list = await this.splashModel.find().exec();
+      const list = await this.splashModel.find();
       if (list) {
         return {
           statusCode: HttpStatus.OK,
@@ -54,9 +54,9 @@ export class SplashScreenService {
       };
     }
   }
-  async getSplashScreenById(splashscreenId: string) {
+  async getSplashScreenById(req: splashScreenDto) {
     try {
-      const splash = await this.splashModel.findOne({ splashscreenId }).exec();
+      const splash = await this.splashModel.findOne({ splashscreenId: req.splashscreenId });
       if (splash) {
         return {
           statusCode: HttpStatus.OK,
@@ -78,13 +78,12 @@ export class SplashScreenService {
   }
   async updateSplashScreen(req: splashScreenDto) {
     try {
-      const update = await this.splashModel
-        .findOneAndUpdate(
-          { splashscreenId: req.splashscreenId },
-          { $set: req },
-          { new: true },
-        )
-        .exec();
+      const update = await this.splashModel.updateOne({splashscreenId: req.splashscreenId}, {
+        $set: {
+          text: req.text,
+          screen_type: req.screen_type,
+        }
+      });
       if (update) {
         return {
           statusCode: HttpStatus.OK,
@@ -104,11 +103,9 @@ export class SplashScreenService {
       };
     }
   }
-  async deleteSplashScreen(splashscreenId: string) {
+  async deleteSplashScreen(req: splashScreenDto) {
     try {
-      const del = await this.splashModel
-        .findOneAndDelete({ splashscreenId })
-        .exec();
+      const del = await this.splashModel.deleteOne({splashscreenId: req.splashscreenId});
       if (del) {
         return {
           statusCode: HttpStatus.OK,

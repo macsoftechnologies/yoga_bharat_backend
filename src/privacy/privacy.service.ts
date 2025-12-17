@@ -33,7 +33,7 @@ export class PrivacyService {
   }
   async getPrivacy() {
     try {
-      const list = await this.privacyModel.find().exec();
+      const list = await this.privacyModel.find();
 
       if (list) {
         return {
@@ -54,13 +54,13 @@ export class PrivacyService {
       };
     }
   }
-  async privacyById(privacyId: string) {
+  async privacyById(req: privacyDto) {
     try {
-      const byid = await this.privacyModel.findOne({ privacyId }).exec();
+      const byid = await this.privacyModel.findOne({ privacyId: req.privacyId });
       if (byid) {
         return {
           statusCode: HttpStatus.OK,
-          message: 'Privacy By id fetched successfully',
+          message: 'Privacy fetched successfully',
           data: byid,
         };
       } else {
@@ -78,13 +78,12 @@ export class PrivacyService {
   }
   async updatePrivacy(req: privacyDto) {
     try {
-      const update = await this.privacyModel
-        .findOneAndUpdate(
-          { privacyId: req.privacyId },
-          { $set: req },
-          { new: true },
-        )
-        .exec();
+      const update = await this.privacyModel.updateOne({privacyId: req.privacyId}, {
+        $set: {
+          text: req.text,
+          usertype: req.usertype
+        }
+      });
       if (update) {
         return {
           statusCode: HttpStatus.OK,
@@ -104,11 +103,9 @@ export class PrivacyService {
       };
     }
   }
-  async deletePrivacy(privacyId: string) {
+  async deletePrivacy(req: privacyDto) {
     try {
-      const del = await this.privacyModel
-        .findOneAndDelete({ privacyId })
-        .exec();
+      const del = await this.privacyModel.deleteOne({privacyId: req.privacyId});
       if (del) {
         return {
           statusCode: HttpStatus.OK,
