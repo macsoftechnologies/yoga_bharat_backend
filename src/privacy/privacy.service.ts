@@ -54,28 +54,28 @@ export class PrivacyService {
       };
     }
   }
-  // async privacyById(privacyId: string) {
-  //   try {
-  //     const byid = await this.privacyModel.findOne({ privacyId }).exec();
-  //     if (byid) {
-  //       return {
-  //         statusCode: HttpStatus.OK,
-  //         message: 'Privacy By id fetched successfully',
-  //         data: byid,
-  //       };
-  //     } else {
-  //       return {
-  //         statusCode: HttpStatus.NOT_FOUND,
-  //         message: 'Privacy detail not found',
-  //       };
-  //     }
-  //   } catch (error) {
-  //     return {
-  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-  //       message: error,
-  //     };
-  //   }
-  // }
+  async privacyById(privacyId: string) {
+    try {
+      const byid = await this.privacyModel.findOne({ privacyId }).exec();
+      if (byid) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Privacy By id fetched successfully',
+          data: byid,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Privacy detail not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
   async updatePrivacy(req: privacyDto) {
     try {
       const update = await this.privacyModel

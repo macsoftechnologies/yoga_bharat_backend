@@ -8,17 +8,17 @@ import {
 } from '@nestjs/common';
 import { SplashScreenService } from './splash_screen.service';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/guards/roles.decorator';
-import { Role } from 'src/auth/guards/roles.enum';
+// import { RolesGuard } from 'src/auth/guards/roles.guard';
+// import { Roles } from 'src/auth/guards/roles.decorator';
+// import { Role } from 'src/auth/guards/roles.enum';
 import { splashScreenDto } from './dto/splash_screen.dto';
 
 @Controller('splashscreen')
 export class SplashScreenController {
   constructor(private readonly splashScreenService: SplashScreenService) {}
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Post('/addsplash')
   async addSplashScreen(@Body() req: splashScreenDto) {
     try {
@@ -32,8 +32,8 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Get('/getlist')
   async getSplashScreenList() {
     try {
@@ -46,8 +46,8 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Post('/getSplashbyid')
   async getSplashScreenById(@Body('splashscreenId') id: string) {
     try {
@@ -60,8 +60,8 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Post('/updatesplash')
   async updateSplashScreen(@Body() req: splashScreenDto) {
     try {
@@ -74,8 +74,8 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Post('/deletesplash')
   async deleteSplashScreen(@Body('splashscreenId') id: string) {
     try {

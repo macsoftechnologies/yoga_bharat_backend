@@ -54,28 +54,28 @@ export class TermsService {
       };
     }
   }
-  // async termsByID(termsId: string) {
-  //   try {
-  //     const byid = await this.termsModel.findOne({ termsId }).exec();
-  //     if (byid) {
-  //       return {
-  //         statusCode: HttpStatus.OK,
-  //         message: 'Terms By id fetched successfully',
-  //         data: byid,
-  //       };
-  //     } else {
-  //       return {
-  //         statusCode: HttpStatus.NOT_FOUND,
-  //         message: 'Terms detail not found',
-  //       };
-  //     }
-  //   } catch (error) {
-  //     return {
-  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-  //       message: error,
-  //     };
-  //   }
-  // }
+  async termsByID(termsId: string) {
+    try {
+      const byid = await this.termsModel.findOne({ termsId }).exec();
+      if (byid) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Terms By id fetched successfully',
+          data: byid,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Terms detail not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
   async updateTerms(req: termsDto) {
     try {
       const update = await this.termsModel

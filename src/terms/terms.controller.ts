@@ -7,17 +7,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/guards/roles.decorator';
-import { Role } from 'src/auth/guards/roles.enum';
+// import { RolesGuard } from 'src/auth/guards/roles.guard';
+// import { Roles } from 'src/auth/guards/roles.decorator';
+// import { Role } from 'src/auth/guards/roles.enum';
 import { TermsService } from './terms.service';
 import { termsDto } from './tdo/terms.dto';
 
 @Controller('terms')
 export class TermsController {
   constructor(private readonly termsService: TermsService) {}
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Post('/addterms')
   async addterms(@Body() req: termsDto) {
     try {
@@ -30,8 +30,8 @@ export class TermsController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Get('/getterms')
   async getterms() {
     try {
@@ -44,22 +44,22 @@ export class TermsController {
       };
     }
   }
-  // @UseGuards(JwtGuard, RolesGuard)
+  @UseGuards(JwtGuard)
   // @Roles(Role.ADMIN)
-  // @Post('/termsbyid')
-  // async termsByID(@Body('termsId') id: string) {
-  //   try {
-  //     const byid = await this.termsService.termsByID(id);
-  //     return byid;
-  //   } catch (error) {
-  //     return {
-  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-  //       message: error,
-  //     };
-  //   }
-  // }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Post('/termsbyid')
+  async termsByID(@Body('termsId') id: string) {
+    try {
+      const byid = await this.termsService.termsByID(id);
+      return byid;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Post('/updateterms')
   async updateTerms(@Body() req: termsDto) {
     try {
@@ -72,8 +72,8 @@ export class TermsController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtGuard)
+  // @Roles(Role.ADMIN)
   @Post('/deleteterms')
   async deleteTerms(@Body('termsId') id: string) {
     try {

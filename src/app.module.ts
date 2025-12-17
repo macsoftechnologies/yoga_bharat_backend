@@ -16,6 +16,8 @@ import { SplashScreenModule } from './splash_screen/splash_screen.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { TermsModule } from './terms/terms.module';
 import { BookingModule } from './booking/booking.module';
+import { FeaturesModule } from './features/features.module';
+import { ApptutorialModule } from './apptutorial/apptutorial.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { BookingModule } from './booking/booking.module';
     PrivacyModule,
     TermsModule,
     BookingModule,
+    FeaturesModule,
+    ApptutorialModule,
   ],
   controllers: [AppController],
   providers: [
