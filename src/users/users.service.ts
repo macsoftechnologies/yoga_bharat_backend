@@ -634,14 +634,14 @@ export class UsersService {
             certificates: {
               $cond: {
                 if: { $gt: [{ $size: '$certificates' }, 0] },
-                then: { $arrayElemAt: ['$certificates', 0] },
+                then: '$certificates',
                 else: '$$REMOVE',
               },
             },
             journey_images: {
               $cond: {
                 if: { $gt: [{ $size: '$journey_images' }, 0] },
-                then: { $arrayElemAt: ['$journey_images', 0] },
+                then: '$journey_images',
                 else: '$$REMOVE',
               },
             },
@@ -680,7 +680,7 @@ export class UsersService {
         {$match: {role: Role.TRAINER}},
         {
           $lookup: {
-            from: 'yogas',
+            from: 'yogadetails',
             localField: 'professional_details',
             foreignField: 'yogaId',
             as: 'professional_details',
@@ -741,6 +741,79 @@ export class UsersService {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
       };
+    }
+  }
+
+  async getUserById(req: clientDto) {
+    try{
+      const findUser = await this.userModel.aggregate([
+        {$match: {userId: req.userId}},
+        {
+          $lookup: {
+            from: 'healthpreferences',
+            localField: 'health_preference',
+            foreignField: 'prefId',
+            as: 'health_preference',
+          },
+        },
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'professional_details',
+            foreignField: 'yogaId',
+            as: 'professional_details',
+          },
+        },
+        {
+          $addFields: {
+            health_preference: {
+              $cond: {
+                if: { $gt: [{ $size: '$health_preference' }, 0] },
+                then: { $arrayElemAt: ['$health_preference', 0] },
+                else: '$$REMOVE',
+              },
+            },
+            professional_details: {
+              $cond: {
+                if: { $gt: [{ $size: '$professional_details' }, 0] },
+                then: { $arrayElemAt: ['$professional_details', 0] },
+                else: '$$REMOVE',
+              },
+            },
+            certificates: {
+              $cond: {
+                if: { $gt: [{ $size: '$certificates' }, 0] },
+                then: '$certificates',
+                else: '$$REMOVE',
+              },
+            },
+            journey_images: {
+              $cond: {
+                if: { $gt: [{ $size: '$journey_images' }, 0] },
+                then: '$journey_images',
+                else: '$$REMOVE',
+              },
+            },
+          },
+        },
+      ]);
+      if(findUser) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: "User Details",
+          data: findUser[0]
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "User not found",
+        }
+      }
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      }
     }
   }
 }

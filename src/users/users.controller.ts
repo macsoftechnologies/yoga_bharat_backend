@@ -394,4 +394,18 @@ export class UsersController {
       }
     }
   }
+
+  @UseGuards(JwtGuard)
+  @Post('/userbyid')
+  async getUser(@Body() req: clientDto) {
+    try{
+      const userdetails = await this.usersService.getUserById(req);
+      return userdetails
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      }
+    }
+  }
 }
