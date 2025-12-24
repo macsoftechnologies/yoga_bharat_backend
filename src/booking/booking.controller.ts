@@ -1,11 +1,16 @@
-import { Body, Controller, Get, HttpStatus, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { bookingDto } from './dto/booking.dto';
+import { JwtGuard } from 'src/auth/guards/jwt.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/guards/roles.decorator';
+import { Role } from 'src/auth/guards/roles.enum';
 
 @Controller('booking')
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
+  @UseGuards(JwtGuard)
   @Post('/createbooking')
   async addBooking(@Body() req: bookingDto) {
     try {
@@ -19,6 +24,7 @@ export class BookingController {
     }
   }
 
+  @UseGuards(JwtGuard)
   @Get('/filterlist')
   getBookings(
     @Query('page') page = 1,
@@ -34,6 +40,7 @@ export class BookingController {
     });
   }
 
+  @UseGuards(JwtGuard)
   @Post('/delete')
   async removeBooking(@Body() req: bookingDto) {
     try{
@@ -47,6 +54,8 @@ export class BookingController {
     }
   }
 
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('/accept')
   async acceptbooking(@Body() req: bookingDto) {
     try{

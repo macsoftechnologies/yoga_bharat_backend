@@ -12,6 +12,7 @@ import { EKYCstatus, Role } from 'src/auth/guards/roles.enum';
 import { trainerDto } from './dto/trainer.dto';
 import { trainerEKYCDto } from './dto/trainer_ekyc.dto';
 import { AuthService } from 'src/auth/auth.service';
+import { userEditDto } from './dto/user-edit.dto';
 
 @Injectable()
 export class UsersService {
@@ -388,16 +389,17 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      if (findUser && (findUser.role == "trainer" || "client")) {
+      if (findUser && (findUser.role == 'trainer' || 'client')) {
         return {
           statusCode: HttpStatus.NOT_ACCEPTABLE,
           message: 'User already registered please login.',
         };
-      }else if(findUser && !findUser.role) {
+      } else if (findUser && !findUser.role) {
         return {
           statusCode: HttpStatus.CONFLICT,
-          message: "Already Registered but verify otp and provide Details of your profile."
-        }
+          message:
+            'Already Registered but verify otp and provide Details of your profile.',
+        };
       } else {
         const add = await this.userModel.create(req);
         if (add) {
@@ -427,15 +429,19 @@ export class UsersService {
           message: 'User Verified Successfully',
           data: findUser,
         };
-      }else if(findUser && (findUser.role == "trainer" || "client") && req.otp == '1234') {
+      } else if (
+        findUser &&
+        (findUser.role == 'trainer' || 'client') &&
+        req.otp == '1234'
+      ) {
         const jwtToken = await this.authService.createToken({ findUser });
-          //   console.log(jwtToken);
-          return {
-            statusCode: HttpStatus.OK,
-            message: 'User Login successfull',
-            token: jwtToken,
-            data: findUser,
-          };
+        //   console.log(jwtToken);
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'User Login successfull',
+          token: jwtToken,
+          data: findUser,
+        };
       } else {
         return {
           statusCode: HttpStatus.EXPECTATION_FAILED,
@@ -468,13 +474,13 @@ export class UsersService {
       if (addclient) {
         const findUser = await this.userModel.findOne({ userId: req.userId });
         const jwtToken = await this.authService.createToken({ findUser });
-          //   console.log(jwtToken);
-          return {
-            statusCode: HttpStatus.OK,
-            message: 'User Login successfull',
-            token: jwtToken,
-            data: findUser,
-          };
+        //   console.log(jwtToken);
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'User Login successfull',
+          token: jwtToken,
+          data: findUser,
+        };
       } else {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -520,13 +526,13 @@ export class UsersService {
       if (add) {
         const findUser = await this.userModel.findOne({ userId: req.userId });
         const jwtToken = await this.authService.createToken({ findUser });
-          //   console.log(jwtToken);
-          return {
-            statusCode: HttpStatus.OK,
-            message: 'User Login successfull',
-            token: jwtToken,
-            data: findUser,
-          };
+        //   console.log(jwtToken);
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'User Login successfull',
+          token: jwtToken,
+          data: findUser,
+        };
       } else {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -616,11 +622,13 @@ export class UsersService {
       const skip = (page - 1) * limit;
 
       // --- 1. Total count ---
-      const totalCount = await this.userModel.find({role: Role.CLIENT}).countDocuments();
+      const totalCount = await this.userModel
+        .find({ role: Role.CLIENT })
+        .countDocuments();
 
       // --- 2. Paginated aggregation ---
       const getusers = await this.userModel.aggregate([
-        {$match: {role: Role.CLIENT}},
+        { $match: { role: Role.CLIENT } },
         {
           $lookup: {
             from: 'healthpreferences',
@@ -673,11 +681,13 @@ export class UsersService {
       const skip = (page - 1) * limit;
 
       // --- 1. Total count ---
-      const totalCount = await this.userModel.find({role: Role.TRAINER}).countDocuments();
+      const totalCount = await this.userModel
+        .find({ role: Role.TRAINER })
+        .countDocuments();
 
       // --- 2. Paginated aggregation ---
       const getusers = await this.userModel.aggregate([
-        {$match: {role: Role.TRAINER}},
+        { $match: { role: Role.TRAINER } },
         {
           $lookup: {
             from: 'yogadetails',
@@ -745,9 +755,9 @@ export class UsersService {
   }
 
   async getUserById(req: clientDto) {
-    try{
+    try {
       const findUser = await this.userModel.aggregate([
-        {$match: {userId: req.userId}},
+        { $match: { userId: req.userId } },
         {
           $lookup: {
             from: 'healthpreferences',
@@ -797,16 +807,113 @@ export class UsersService {
           },
         },
       ]);
-      if(findUser) {
+      if (findUser) {
         return {
           statusCode: HttpStatus.OK,
-          message: "User Details",
-          data: findUser[0]
+          message: 'User Details',
+          data: findUser[0],
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'User not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  async editUser(req: userEditDto, image) {
+    try {
+      const findUser = await this.userModel.findOne({ userId: req.userId });
+      if (findUser && findUser.role === 'client') {
+        const edit = await this.userModel.updateOne(
+          { userId: req.userId },
+          {
+            $set: {
+              name: req.name,
+              email: req.email,
+              gender: req.gender,
+              age: req.age,
+              health_preference: req.health_preference,
+            },
+          },
+        );
+        if (edit) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'User Login successfull',
+            data: edit,
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: 'Failed to Update User.',
+          };
+        }
+      } else if (findUser && findUser.role === 'trainer') {
+        if (image) {
+          const reqDoc = image.map((doc, index) => {
+            let IsPrimary = false;
+            if (index == 0) {
+              IsPrimary = true;
+            }
+            const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+            return doc.filename;
+          });
+
+          req.profile_pic = reqDoc.toString();
+        }
+        const edit = await this.userModel.updateOne(
+          { userId: req.userId },
+          {
+            $set: {
+              name: req.name,
+              email: req.email,
+              gender: req.gender,
+              age: req.age,
+              professional_details: req.professional_details,
+              profile_pic: req.profile_pic,
+            },
+          },
+        );
+        if (edit) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'User Login successfull',
+            data: edit,
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: 'Failed to Update User.',
+          };
         }
       } else {
         return {
           statusCode: HttpStatus.NOT_FOUND,
-          message: "User not found",
+          message: 'User Not found',
+        }
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  async deleteUser(req: clientDto) {
+    try{
+      const deleteUser = await this.userModel.deleteOne({userId: req.userId});
+      if(deleteUser) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: "User deleted successfully",
         }
       }
     } catch(error) {

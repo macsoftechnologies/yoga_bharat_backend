@@ -26,6 +26,7 @@ import { JwtGuard } from 'src/auth/guards/jwt.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/guards/roles.decorator';
 import { Role } from 'src/auth/guards/roles.enum';
+import { userEditDto } from './dto/user-edit.dto';
 
 @Controller('users')
 export class UsersController {
@@ -384,28 +385,70 @@ export class UsersController {
   @Roles(Role.ADMIN)
   @Post('/approvetrainer')
   async aprroveTrainer(@Body() req: trainerEKYCDto) {
-    try{
+    try {
       const accepttrainer = await this.usersService.approveTrainer(req);
-      return accepttrainer
-    } catch(error) {
+      return accepttrainer;
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
-      }
+      };
     }
   }
 
   @UseGuards(JwtGuard)
   @Post('/userbyid')
   async getUser(@Body() req: clientDto) {
-    try{
+    try {
       const userdetails = await this.usersService.getUserById(req);
-      return userdetails
-    } catch(error) {
+      return userdetails;
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
-      }
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard)
+  @Post('/update')
+  @UseInterceptors(
+    AnyFilesInterceptor({
+      storage: diskStorage({
+        destination: './files',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  async edituser(@Body() req: userEditDto, @UploadedFiles() image) {
+    try {
+      const edituser = await this.usersService.editUser(req, image);
+      return edituser;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard)
+  @Post('/delete')
+  async removeUser(@Body() req: clientDto) {
+    try {
+      const removeuser = await this.usersService.deleteUser(req);
+      return removeuser;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
     }
   }
 }

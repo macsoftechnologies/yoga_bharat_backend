@@ -52,6 +52,7 @@ export class BookingService {
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking created successfully.',
+          data: addbooking
         };
       } else {
         return {
@@ -120,7 +121,7 @@ export class BookingService {
         },
         {
           $lookup: {
-            from: 'yogas',
+            from: 'yogadetails',
             localField: 'yogaId',
             foreignField: 'yogaId',
             as: 'yogaId',
