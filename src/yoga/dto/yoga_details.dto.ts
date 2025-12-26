@@ -15,4 +15,6 @@ export class yogaDetailsDto {
   yoga_image: string;
   @ApiProperty()
   yoga_icon: string;
+  @ApiProperty()
+  duration:string
 }

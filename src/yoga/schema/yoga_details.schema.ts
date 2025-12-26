@@ -17,6 +17,8 @@ export class YogaDetails extends Document {
   yoga_image: string;
   @Prop()
   yoga_icon: string;
+  @Prop()
+  duration: string
 }
 
 export const yogaDetailsSchema = SchemaFactory.createForClass(YogaDetails);

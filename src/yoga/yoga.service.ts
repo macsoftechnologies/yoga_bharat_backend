@@ -122,7 +122,8 @@ export class YogaService {
                 yoga_image: req.yoga_image,
                 yoga_desc: req.yoga_desc,
                 client_price: req.client_price,
-                trainer_price: req.trainer_price
+                trainer_price: req.trainer_price,
+                duration: req.duration
               },
             },
           );
@@ -148,7 +149,8 @@ export class YogaService {
                 yoga_icon: req.yoga_icon,
                 yoga_desc: req.yoga_desc,
                 client_price: req.client_price,
-                trainer_price: req.trainer_price
+                trainer_price: req.trainer_price,
+                duration: req.duration
               },
             },
           );
@@ -175,7 +177,8 @@ export class YogaService {
                 yoga_image: req.yoga_image,
                 yoga_desc: req.yoga_desc,
                 client_price: req.client_price,
-                trainer_price: req.trainer_price
+                trainer_price: req.trainer_price,
+                duration: req.duration
               },
             },
           );
@@ -200,7 +203,8 @@ export class YogaService {
                 yoga_name: req.yoga_name,
                 yoga_desc: req.yoga_desc,
                 client_price: req.client_price,
-                trainer_price: req.trainer_price
+                trainer_price: req.trainer_price,
+                duration: req.duration
               },
             },
           );
