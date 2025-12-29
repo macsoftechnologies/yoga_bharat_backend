@@ -25,11 +25,11 @@ export class BookingController {
   }
 
   @UseGuards(JwtGuard)
-  @Get('/filterlist')
+  @Post('/filterlist')
   getBookings(
     @Query('page') page = 1,
     @Query('limit') limit = 10,
-    @Query() query,
+    @Body() query,
   ) {
     return this.bookingService.getBookings(Number(page), Number(limit), {
       clientId: query.clientId,
