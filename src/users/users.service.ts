@@ -589,8 +589,6 @@ export class UsersService {
             certificates: req.certificates,
             journey_images: req.journey_images,
             yoga_video: req.yoga_video,
-            recipient_name: req.recipient_name,
-            account_no: req.account_no,
             ekyc_status: EKYCstatus.PENDING,
           },
         },
@@ -608,6 +606,41 @@ export class UsersService {
       return {
         statusCode: HttpStatus.EXPECTATION_FAILED,
         message: 'Failed to add EKYC Details',
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  async addTrainerBankDetails(req: trainerEKYCDto) {
+    try {
+      const addBank = await this.userModel.updateOne(
+        { userId: req.userId },
+        {
+          $set: {
+            recipient_name: req.recipient_name,
+            account_no: req.account_no,
+            ifsc_code: req.ifsc_code,
+            account_branch: req.account_branch,
+            branch_address: req.branch_address,
+          },
+        },
+      );
+      if (addBank.modifiedCount > 0) {
+        const user = await this.userModel.findOne({ userId: req.userId });
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Bank details added successfully',
+          data: user,
+        };
+      }
+
+      return {
+        statusCode: HttpStatus.EXPECTATION_FAILED,
+        message: 'Failed to add Bank Details',
       };
     } catch (error) {
       return {
@@ -897,7 +930,7 @@ export class UsersService {
         return {
           statusCode: HttpStatus.NOT_FOUND,
           message: 'User Not found',
-        }
+        };
       }
     } catch (error) {
       return {
@@ -908,19 +941,19 @@ export class UsersService {
   }
 
   async deleteUser(req: clientDto) {
-    try{
-      const deleteUser = await this.userModel.deleteOne({userId: req.userId});
-      if(deleteUser) {
+    try {
+      const deleteUser = await this.userModel.deleteOne({ userId: req.userId });
+      if (deleteUser) {
         return {
           statusCode: HttpStatus.OK,
-          message: "User deleted successfully",
-        }
+          message: 'User deleted successfully',
+        };
       }
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
-      }
+      };
     }
   }
 }

@@ -15,4 +15,10 @@ export class trainerEKYCDto {
   account_no: string;
   @ApiProperty()
   ekyc_status: string;
+  @ApiProperty()
+  ifsc_code: string;
+  @ApiProperty()
+  account_branch: string;
+  @ApiProperty()
+  branch_address: string
 }

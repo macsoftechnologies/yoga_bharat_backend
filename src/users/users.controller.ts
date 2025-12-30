@@ -345,6 +345,18 @@ export class UsersController {
     }
   }
 
+  @Post('/addtrainerbank')
+  async addTrainerBank(@Body() req: trainerEKYCDto) {
+    try {
+      return await this.usersService.addTrainerBankDetails(req);
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('/clients')
