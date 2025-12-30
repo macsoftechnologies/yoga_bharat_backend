@@ -13,6 +13,7 @@ import {
 } from './schema/professional_details.schema';
 import { AuthService } from 'src/auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
+import { Certificate, certificateSchema } from './schema/cerificates.schema';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { JwtService } from '@nestjs/jwt';
       { name: User.name, schema: userSchema },
       { name: HealthPreference.name, schema: healthPreferenceSchema },
       { name: ProfessionalDetails.name, schema: professionalDetailsSchema },
+      { name: Certificate.name, schema: certificateSchema },
     ]),
   ],
   controllers: [UsersController],

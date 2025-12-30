@@ -26,8 +26,6 @@ export class User extends Document {
   @Prop()
   profile_pic: string;
   @Prop({ type: [String] })
-  certificates: string[];
-  @Prop({ type: [String] })
   journey_images: string[];
   @Prop()
   yoga_video: string;

@@ -4,8 +4,6 @@ export class trainerEKYCDto {
   @ApiProperty()
   userId: string
   @ApiProperty({ required: false, type: [String] })
-  certificates: string[];
-  @ApiProperty({ required: false, type: [String] })
   journey_images: string[];
   @ApiProperty({required: false,})
   yoga_video: string;

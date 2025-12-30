@@ -13,6 +13,8 @@ import { trainerDto } from './dto/trainer.dto';
 import { trainerEKYCDto } from './dto/trainer_ekyc.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { userEditDto } from './dto/user-edit.dto';
+import { certificateDto } from './dto/certificates.dto';
+import { Certificate } from './schema/cerificates.schema';
 
 @Injectable()
 export class UsersService {
@@ -23,6 +25,8 @@ export class UsersService {
     @InjectModel(ProfessionalDetails.name)
     private readonly profDetailsModel: Model<ProfessionalDetails>,
     private readonly authService: AuthService,
+    @InjectModel(Certificate.name)
+    private readonly certificateModel: Model<Certificate>,
   ) {}
 
   //  Starting of Health Preferences Apis
@@ -550,19 +554,9 @@ export class UsersService {
   async addTrainerEKYC(req: trainerEKYCDto, image) {
     try {
       // initialize arrays
-      const certificateFiles: string[] = [];
       const journeyFiles: string[] = [];
 
       if (image) {
-        // ---------- CERTIFICATES ----------
-        if (image.certificates && image.certificates.length > 0) {
-          for (const file of image.certificates) {
-            const savedFile = await this.authService.saveFile(file);
-            certificateFiles.push(savedFile);
-          }
-          req.certificates = certificateFiles;
-        }
-
         // ---------- JOURNEY IMAGES ----------
         if (image.journey_images && image.journey_images.length > 0) {
           for (const file of image.journey_images) {
@@ -577,7 +571,6 @@ export class UsersService {
           req.yoga_video = await this.authService.saveFile(image.yoga_video[0]);
         }
       } else {
-        req.certificates = [];
         req.journey_images = [];
         req.yoga_video = '';
       }
@@ -586,7 +579,6 @@ export class UsersService {
         { userId: req.userId },
         {
           $set: {
-            certificates: req.certificates,
             journey_images: req.journey_images,
             yoga_video: req.yoga_video,
             ekyc_status: EKYCstatus.PENDING,
@@ -954,6 +946,120 @@ export class UsersService {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
       };
+    }
+  }
+
+  async createCertificate(req: certificateDto, image) {
+    try {
+      if (image) {
+        const reqDoc = image.map((doc, index) => {
+          let IsPrimary = false;
+          if (index == 0) {
+            IsPrimary = true;
+          }
+          const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+          return doc.filename;
+        });
+
+        req.cerificate = reqDoc.toString();
+      }
+      const add = await this.certificateModel.create(req);
+      if (add) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Certificate added successfully',
+          data: add,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Failed to add certificate',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  async getCertificates() {
+    try {
+      const findCertificates = await this.certificateModel.aggregate([
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "userId",
+            as: "userId",
+          }
+        }
+      ]);
+      if (findCertificates.length > 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'List of Certificates',
+          data: findCertificates,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'No Certificates found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  async getCerticatesByUser(req: certificateDto) {
+    try {
+      const findCertificates = await this.certificateModel.find({
+        userId: req.userId,
+      });
+      if (findCertificates) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Certificates List of Trainer',
+          data: findCertificates,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'No certificates found by this user',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  async deleteCertificate(req: certificateDto) {
+    try{
+      const removeCertificate = await this.certificateModel.deleteOne({certificateId: req.certificateId});
+      if(removeCertificate) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: "Certificate Deleted Successfully",
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: "Failed to delete certificate",
+        }
+      }
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      }
     }
   }
 }

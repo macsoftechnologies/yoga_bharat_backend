@@ -27,6 +27,7 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/guards/roles.decorator';
 import { Role } from 'src/auth/guards/roles.enum';
 import { userEditDto } from './dto/user-edit.dto';
+import { certificateDto } from './dto/certificates.dto';
 
 @Controller('users')
 export class UsersController {
@@ -455,6 +456,76 @@ export class UsersController {
   async removeUser(@Body() req: clientDto) {
     try {
       const removeuser = await this.usersService.deleteUser(req);
+      return removeuser;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard)
+  @Post('/addcertificate')
+  @UseInterceptors(
+    AnyFilesInterceptor({
+      storage: diskStorage({
+        destination: './files',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  async addCertificate(@Body() req: certificateDto, @UploadedFiles() image) {
+    try {
+      const addtrainer = await this.usersService.createCertificate(req, image);
+      return addtrainer;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('/certificateslist')
+  async getCertificatesList() {
+    try {
+      const getlist = await this.usersService.getCertificates();
+      return getlist;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard)
+  @Post('/certificatebyuser')
+  async getUserCertificates(@Body() req: certificateDto) {
+    try {
+      const userdetails = await this.usersService.getCerticatesByUser(req);
+      return userdetails;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard)
+  @Post('/deletecertificate')
+  async removeCertificate(@Body() req: certificateDto) {
+    try {
+      const removeuser = await this.usersService.deleteCertificate(req);
       return removeuser;
     } catch (error) {
       return {
