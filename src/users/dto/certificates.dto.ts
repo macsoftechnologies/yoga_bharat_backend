@@ -4,7 +4,7 @@ export class certificateDto{
     @ApiProperty()
     certificateId: string
     @ApiProperty()
-    cerificate: string
+    certificate: string
     @ApiProperty()
     headline: string
     @ApiProperty()

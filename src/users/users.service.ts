@@ -961,7 +961,7 @@ export class UsersService {
           return doc.filename;
         });
 
-        req.cerificate = reqDoc.toString();
+        req.certificate = reqDoc.toString();
       }
       const add = await this.certificateModel.create(req);
       if (add) {
