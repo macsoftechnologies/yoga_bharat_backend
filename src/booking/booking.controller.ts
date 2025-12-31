@@ -1,10 +1,19 @@
-import { Body, Controller, Get, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { bookingDto } from './dto/booking.dto';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/guards/roles.decorator';
 import { Role } from 'src/auth/guards/roles.enum';
+import { earningDto } from './dto/earnings.dto';
 
 @Controller('booking')
 export class BookingController {
@@ -36,21 +45,21 @@ export class BookingController {
       accepted_trainerId: query.accepted_trainerId,
       status: query.status,
       yogaId: query.yogaId,
-      bookingId: query.bookingId
+      bookingId: query.bookingId,
     });
   }
 
   @UseGuards(JwtGuard)
   @Post('/delete')
   async removeBooking(@Body() req: bookingDto) {
-    try{
+    try {
       const removebooking = await this.bookingService.deleteBooking(req);
-      return removebooking
-    } catch(error){
+      return removebooking;
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error
-      }
+        message: error,
+      };
     }
   }
 
@@ -58,14 +67,53 @@ export class BookingController {
   @Roles(Role.ADMIN)
   @Post('/accept')
   async acceptbooking(@Body() req: bookingDto) {
-    try{
+    try {
       const accept = await this.bookingService.acceptBooking(req);
-      return accept
-    } catch(error) {
+      return accept;
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
-      }
+      };
+    }
+  }
+
+  @Post('/addearning')
+  async addEarning(@Body() req: earningDto) {
+    try {
+      const add = await this.bookingService.addEarning(req);
+      return add;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @Post('/gettrainerearning')
+  async getTrainerEarning(@Body() req: earningDto) {
+    try {
+      const add = await this.bookingService.getEarnings(req);
+      return add;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @Post('/gettrainermonthlyearning')
+  async getTrainerMonthlyEarning(@Body() req: earningDto) {
+    try {
+      const add = await this.bookingService.getCurrentMonthEarnings(req);
+      return add;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
     }
   }
 }

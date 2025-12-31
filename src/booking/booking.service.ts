@@ -4,12 +4,19 @@ import { Booking } from './schema/booking.schema';
 import { Model } from 'mongoose';
 import { bookingDto } from './dto/booking.dto';
 import { User } from 'src/users/schema/user.schema';
+import { Earning } from '../booking/schema/earnings.scheam';
+import { earningDto } from './dto/earnings.dto';
+import { YogaDetails } from 'src/yoga/schema/yoga_details.schema';
 
 @Injectable()
 export class BookingService {
   constructor(
     @InjectModel(Booking.name) private readonly bookingModel: Model<Booking>,
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    @InjectModel(Earning.name)
+    private readonly earningModel: Model<Earning>,
+    @InjectModel(YogaDetails.name)
+    private readonly yogaModel: Model<YogaDetails>,
   ) {}
 
   private formatTimeToHHMMSS(time: string): string {
@@ -52,7 +59,7 @@ export class BookingService {
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking created successfully.',
-          data: addbooking
+          data: addbooking,
         };
       } else {
         return {
@@ -190,46 +197,241 @@ export class BookingService {
   }
 
   async deleteBooking(req: bookingDto) {
-    try{
-      const remove = await this.bookingModel.deleteOne({bookingId: req.bookingId});
-      if(remove) {
+    try {
+      const remove = await this.bookingModel.deleteOne({
+        bookingId: req.bookingId,
+      });
+      if (remove) {
         return {
           statusCode: HttpStatus.OK,
-          message: "Booking Deleted Successfully",
-        }
+          message: 'Booking Deleted Successfully',
+        };
       }
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error
-      }
+        message: error,
+      };
     }
   }
 
   async acceptBooking(req: bookingDto) {
-    try{
-      const accept = await this.bookingModel.updateOne({bookingId: req.bookingId},{
-        $set: {
-          accepted_trainerId: req.accepted_trainerId,
-          status: "accepted",
-        }
-      });
-      if(accept) {
+    try {
+      const accept = await this.bookingModel.updateOne(
+        { bookingId: req.bookingId },
+        {
+          $set: {
+            accepted_trainerId: req.accepted_trainerId,
+            status: 'accepted',
+          },
+        },
+      );
+      if (accept) {
         return {
           statusCode: HttpStatus.OK,
-          message: "Booking accepted successfully",
-        }
+          message: 'Booking accepted successfully',
+        };
       } else {
         return {
           statusCode: HttpStatus.EXPECTATION_FAILED,
-          message: "Failed to accept booking."
-        }
+          message: 'Failed to accept booking.',
+        };
       }
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
+      };
+    }
+  }
+
+  async addEarning(req: earningDto) {
+    try {
+      const findEarning = await this.earningModel.find({
+        bookingId: req.bookingId,
+      });
+      if (findEarning.length > 0) {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'Earning already added for this Booking.',
+          data: findEarning,
+        };
       }
+      const findBooking = await this.bookingModel.findOne({
+        bookingId: req.bookingId,
+      });
+      if (findBooking) {
+        const findYoga = await this.yogaModel.findOne({
+          yogaId: findBooking.yogaId,
+        });
+        if (findYoga) {
+          const addEarning = await this.earningModel.create({
+            bookingId: req.bookingId,
+            trainerId: findBooking.accepted_trainerId,
+            earned_amount: findYoga.trainer_price,
+            clientId: findBooking.clientId,
+            yogaId: findBooking.yogaId,
+            date: findBooking.scheduledDate,
+          });
+          if (addEarning) {
+            return {
+              statusCode: HttpStatus.OK,
+              message: 'Earning added successfully',
+              data: addEarning,
+            };
+          } else {
+            return {
+              statusCode: HttpStatus.EXPECTATION_FAILED,
+              message: 'Failed to add earning',
+            };
+          }
+        } else {
+          return {
+            statusCode: HttpStatus.NOT_FOUND,
+            message: 'Yoga Details not found',
+          };
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Booking not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  async getEarnings(req: earningDto) {
+    try {
+      const result = await this.earningModel.aggregate([
+        { $match: { trainerId: req.trainerId } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "clientId",
+            foreignField: "userId",
+            as: "clientId"
+          }
+        },
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'yogaId',
+            foreignField: 'yogaId',
+            as: 'yogaId',
+          },
+        },
+        {
+          $facet: {
+            data: [
+              { $sort: { createdAt: -1 } }, // optional
+            ],
+            total: [
+              {
+                $group: {
+                  _id: null,
+                  totalAmount: { $sum: '$earned_amount' },
+                },
+              },
+            ],
+          },
+        },
+      ]);
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Earnings of Trainer',
+        Total: result[0]?.total[0]?.totalAmount || 0,
+        data: result[0]?.data || [],
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  async getCurrentMonthEarnings(req: earningDto) {
+    try {
+      const now = new Date();
+
+      const startOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+        0,
+        0,
+        0,
+        0,
+      );
+
+      const endOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
+
+      const result = await this.earningModel.aggregate([
+        {
+          $match: {
+            trainerId: req.trainerId,
+            createdAt: {
+              $gte: startOfMonth,
+              $lte: endOfMonth,
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "clientId",
+            foreignField: "userId",
+            as: "clientId"
+          }
+        },
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'yogaId',
+            foreignField: 'yogaId',
+            as: 'yogaId',
+          },
+        },
+        {
+          $facet: {
+            data: [{ $sort: { createdAt: -1 } }],
+            total: [
+              {
+                $group: {
+                  _id: null,
+                  totalAmount: { $sum: '$earned_amount' },
+                },
+              },
+            ],
+          },
+        },
+      ]);
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Current Month Earnings of Trainer',
+        Total: result[0]?.total[0]?.totalAmount || 0,
+        data: result[0]?.data || [],
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
     }
   }
 }

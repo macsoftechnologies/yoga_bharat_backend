@@ -662,24 +662,24 @@ export class UsersService {
             as: 'health_preference',
           },
         },
-        {
-          $addFields: {
-            certificates: {
-              $cond: {
-                if: { $gt: [{ $size: '$certificates' }, 0] },
-                then: '$certificates',
-                else: '$$REMOVE',
-              },
-            },
-            journey_images: {
-              $cond: {
-                if: { $gt: [{ $size: '$journey_images' }, 0] },
-                then: '$journey_images',
-                else: '$$REMOVE',
-              },
-            },
-          },
-        },
+        // {
+        //   $addFields: {
+        //     certificates: {
+        //       $cond: {
+        //         if: { $gt: [{ $size: '$certificates' }, 0] },
+        //         then: '$certificates',
+        //         else: '$$REMOVE',
+        //       },
+        //     },
+        //     journey_images: {
+        //       $cond: {
+        //         if: { $gt: [{ $size: '$journey_images' }, 0] },
+        //         then: '$journey_images',
+        //         else: '$$REMOVE',
+        //       },
+        //     },
+        //   },
+        // },
         { $skip: skip },
         { $limit: limit },
       ]);
