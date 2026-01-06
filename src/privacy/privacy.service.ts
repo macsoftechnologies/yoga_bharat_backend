@@ -31,22 +31,37 @@ export class PrivacyService {
       };
     }
   }
-  async getPrivacy() {
+  async getPrivacy(page: number, limit: number) {
     try {
-      const list = await this.privacyModel.find();
+      const skip = (page - 1) * limit;
 
-      if (list) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'Privacy list fetched successfully',
-          data: list,
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.EXPECTATION_FAILED,
-          message: 'Failed to fetch Privacy list',
-        };
-      }
+      const [getList, totalCount] = await Promise.all([
+        this.privacyModel.find().skip(skip).limit(limit),
+        this.privacyModel.countDocuments(),
+      ]);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of Privacy Policies',
+        totalCount: totalCount,
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        limit,
+        data: getList,
+      };
+      // const list = await this.privacyModel.find();
+
+      // if (list) {
+      //   return {
+      //     statusCode: HttpStatus.OK,
+      //     message: 'Privacy list fetched successfully',
+      //     data: list,
+      //   };
+      // } else {
+      //   return {
+      //     statusCode: HttpStatus.EXPECTATION_FAILED,
+      //     message: 'Failed to fetch Privacy list',
+      //   };
+      // }
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

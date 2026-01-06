@@ -45,21 +45,36 @@ export class ApptutorialService {
       };
     }
   }
-  async getAppTutoiral() {
+  async getAppTutoiral(page: number, limit: number) {
     try {
-      const getList = await this.tutorialModel.find();
-      if (getList.length > 0) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'List of App Tutorial Details',
-          data: getList,
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'No App Tutorial Details found.',
-        };
-      }
+      const skip = (page - 1) * limit;
+
+      const [getList, totalCount] = await Promise.all([
+        this.tutorialModel.find().skip(skip).limit(limit),
+        this.tutorialModel.countDocuments(),
+      ]);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of App Tutorial Details',
+        totalCount: totalCount,
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        limit,
+        data: getList,
+      };
+      // const getList = await this.tutorialModel.find();
+      // if (getList.length > 0) {
+      //   return {
+      //     statusCode: HttpStatus.OK,
+      //     message: 'List of App Tutorial Details',
+      //     data: getList,
+      //   };
+      // } else {
+      //   return {
+      //     statusCode: HttpStatus.NOT_FOUND,
+      //     message: 'No App Tutorial Details found.',
+      //   };
+      // }
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

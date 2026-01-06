@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
@@ -32,9 +33,12 @@ export class TermsController {
   }
   @UseGuards(JwtGuard)
   @Get('/list')
-  async getterms() {
+  async getterms(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
-      const list = await this.termsService.getterms();
+      const list = await this.termsService.getterms(
+        Number(page),
+        Number(limit),
+      );
       return list;
     } catch (error) {
       return {

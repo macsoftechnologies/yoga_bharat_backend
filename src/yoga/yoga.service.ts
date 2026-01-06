@@ -11,24 +11,24 @@ export class YogaService {
   constructor(
     @InjectModel(YogaDetails.name)
     private readonly yogaModel: Model<YogaDetails>,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
   ) {}
   async addYoga(req: yogaDetailsDto, image) {
     try {
       if (image) {
         if (image.yoga_image && image.yoga_image[0]) {
-            const attachmentFile = await this.authService.saveFile(
-              image.yoga_image[0],
-            );
-            req.yoga_image = attachmentFile;
-          }
-          if (image.yoga_icon && image.yoga_icon[0]) {
-            const attachmentFile = await this.authService.saveFile(
-              image.yoga_icon[0],
-            );
+          const attachmentFile = await this.authService.saveFile(
+            image.yoga_image[0],
+          );
+          req.yoga_image = attachmentFile;
+        }
+        if (image.yoga_icon && image.yoga_icon[0]) {
+          const attachmentFile = await this.authService.saveFile(
+            image.yoga_icon[0],
+          );
 
-            req.yoga_icon = attachmentFile;
-          }
+          req.yoga_icon = attachmentFile;
+        }
       }
       const add = await this.yogaModel.create(req);
       if (add) {
@@ -50,25 +50,28 @@ export class YogaService {
       };
     }
   }
-  async getYogaAll() {
+  async getYogaAll(page: number, limit: number) {
     try {
-      const getList = await this.yogaModel.find();
-      if (getList.length > 0) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'List of Yoga Details',
-          data: getList,
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'No Yoga Details found.',
-        };
-      }
+      const skip = (page - 1) * limit;
+
+      const [getList, totalCount] = await Promise.all([
+        this.yogaModel.find().skip(skip).limit(limit),
+        this.yogaModel.countDocuments(),
+      ]);
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of Yoga Details',
+        totalCount: totalCount,
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        limit,
+        data: getList,
+      };
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
+        message: error.message || error,
       };
     }
   }
@@ -123,7 +126,7 @@ export class YogaService {
                 yoga_desc: req.yoga_desc,
                 client_price: req.client_price,
                 trainer_price: req.trainer_price,
-                duration: req.duration
+                duration: req.duration,
               },
             },
           );
@@ -139,7 +142,7 @@ export class YogaService {
               message: 'Failed to update health preference',
             };
           }
-        } 
+        }
         if (req.yoga_icon) {
           const updateyoga = await this.yogaModel.updateOne(
             { yogaId: req.yogaId },
@@ -150,7 +153,7 @@ export class YogaService {
                 yoga_desc: req.yoga_desc,
                 client_price: req.client_price,
                 trainer_price: req.trainer_price,
-                duration: req.duration
+                duration: req.duration,
               },
             },
           );
@@ -166,7 +169,7 @@ export class YogaService {
               message: 'Failed to update health preference',
             };
           }
-        } 
+        }
         if (req.yoga_icon && req.yoga_name) {
           const updateyoga = await this.yogaModel.updateOne(
             { yogaId: req.yogaId },
@@ -178,7 +181,7 @@ export class YogaService {
                 yoga_desc: req.yoga_desc,
                 client_price: req.client_price,
                 trainer_price: req.trainer_price,
-                duration: req.duration
+                duration: req.duration,
               },
             },
           );
@@ -194,32 +197,32 @@ export class YogaService {
               message: 'Failed to update health preference',
             };
           }
-        } 
+        }
 
-          const updateyoga = await this.yogaModel.updateOne(
-            { yogaId: req.yogaId },
-            {
-              $set: {
-                yoga_name: req.yoga_name,
-                yoga_desc: req.yoga_desc,
-                client_price: req.client_price,
-                trainer_price: req.trainer_price,
-                duration: req.duration
-              },
+        const updateyoga = await this.yogaModel.updateOne(
+          { yogaId: req.yogaId },
+          {
+            $set: {
+              yoga_name: req.yoga_name,
+              yoga_desc: req.yoga_desc,
+              client_price: req.client_price,
+              trainer_price: req.trainer_price,
+              duration: req.duration,
             },
-          );
-          if (updateyoga) {
-            return {
-              statusCode: HttpStatus.OK,
-              message: 'Yoga Detail updated successfully',
-              data: updateyoga,
-            };
-          } else {
-            return {
-              statusCode: HttpStatus.EXPECTATION_FAILED,
-              message: 'Failed to update Yoga Details',
-            };
-          }
+          },
+        );
+        if (updateyoga) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Yoga Detail updated successfully',
+            data: updateyoga,
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.EXPECTATION_FAILED,
+            message: 'Failed to update Yoga Details',
+          };
+        }
       }
     } catch (error) {
       return {

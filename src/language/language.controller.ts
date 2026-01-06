@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
 import { LanguageService } from './language.service';
 import { languageDto } from './dto/language.dto';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
@@ -27,9 +27,12 @@ export class LanguageController {
 
   @UseGuards(JwtGuard)
   @Get('/list')
-  async getLanguages() {
+  async getLanguages(@Query('page') page = 1, @Query('limit') limit = 10) {
     try{
-      const getlist = await this.languageService.getLanguageList();
+      const getlist = await this.languageService.getLanguageList(
+        Number(page),
+        Number(limit),
+      );
       return getlist
     } catch(error) {
       return {

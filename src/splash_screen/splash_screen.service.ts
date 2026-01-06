@@ -32,21 +32,23 @@ export class SplashScreenService {
       };
     }
   }
-  async getSplashScreenList() {
+  async getSplashScreenList(page: number, limit: number) {
     try {
-      const list = await this.splashModel.find();
-      if (list) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'Splash Screen list fetched successfully',
-          data: list,
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.EXPECTATION_FAILED,
-          message: 'Failed to fetch Splash Screen list',
-        };
-      }
+      const skip = (page - 1) * limit;
+
+      const [getList, totalCount] = await Promise.all([
+        this.splashModel.find().skip(skip).limit(limit),
+        this.splashModel.countDocuments(),
+      ]);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of SplashScreens',
+        totalCount: totalCount,
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        limit,
+        data: getList,
+      };
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

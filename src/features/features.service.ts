@@ -45,21 +45,36 @@ export class FeaturesService {
       };
     }
   }
-  async getFeatureList() {
+  async getFeatureList(page: number, limit: number) {
     try {
-      const getList = await this.featureModel.find();
-      if (getList.length > 0) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'List of Feature Details',
-          data: getList,
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'No Feature Details found.',
-        };
-      }
+      const skip = (page - 1) * limit;
+
+      const [getList, totalCount] = await Promise.all([
+        this.featureModel.find().skip(skip).limit(limit),
+        this.featureModel.countDocuments(),
+      ]);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of Featured Banners',
+        totalCount: totalCount,
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        limit,
+        data: getList,
+      };
+      // const getList = await this.featureModel.find();
+      // if (getList.length > 0) {
+      //   return {
+      //     statusCode: HttpStatus.OK,
+      //     message: 'List of Feature Details',
+      //     data: getList,
+      //   };
+      // } else {
+      //   return {
+      //     statusCode: HttpStatus.NOT_FOUND,
+      //     message: 'No Feature Details found.',
+      //   };
+      // }
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

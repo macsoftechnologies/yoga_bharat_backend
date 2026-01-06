@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -29,10 +30,7 @@ export class YogaController {
   @Roles(Role.ADMIN)
   @Post('/add')
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'yoga_image' },
-      { name: 'yoga_icon' },
-    ]),
+    FileFieldsInterceptor([{ name: 'yoga_image' }, { name: 'yoga_icon' }]),
   )
   async addYogaDetails(@Body() req: yogaDetailsDto, @UploadedFiles() image) {
     try {
@@ -47,9 +45,12 @@ export class YogaController {
   }
   @UseGuards(JwtGuard)
   @Get('/list')
-  async getYogaList() {
+  async getYogaList(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
-      const getlist = await this.yogaService.getYogaAll();
+      const getlist = await this.yogaService.getYogaAll(
+        Number(page),
+        Number(limit),
+      );
       return getlist;
     } catch (error) {
       return {
@@ -75,10 +76,7 @@ export class YogaController {
   @Roles(Role.ADMIN)
   @Post('/update')
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'yoga_image' },
-      { name: 'yoga_icon' },
-    ]),
+    FileFieldsInterceptor([{ name: 'yoga_image' }, { name: 'yoga_icon' }]),
   )
   async editYogaDetail(@Body() req: yogaDetailsDto, @UploadedFiles() image) {
     try {

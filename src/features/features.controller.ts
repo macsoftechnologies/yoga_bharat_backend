@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -54,9 +55,12 @@ export class FeaturesController {
   }
   @UseGuards(JwtGuard)
   @Get('/list')
-  async getFeatureList() {
+  async getFeatureList(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
-      const getlist = await this.FeaturesService.getFeatureList();
+      const getlist = await this.FeaturesService.getFeatureList(
+        Number(page),
+        Number(limit),
+      );
       return getlist;
     } catch (error) {
       return {

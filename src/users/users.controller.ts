@@ -73,9 +73,12 @@ export class UsersController {
 
   @UseGuards(JwtGuard)
   @Get('/healthpreferences')
-  async getHealthPrefList() {
+  async getHealthPrefList(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
-      const getlist = await this.usersService.getHealthPreferences();
+      const getlist = await this.usersService.getHealthPreferences(
+        Number(page),
+        Number(limit),
+      );
       return getlist;
     } catch (error) {
       return {

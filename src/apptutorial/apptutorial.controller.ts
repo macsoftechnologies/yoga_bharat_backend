@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -53,9 +54,12 @@ export class ApptutorialController {
   }
   @UseGuards(JwtGuard)
   @Get('/list')
-  async getAppTutoiral() {
+  async getAppTutoiral(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
-      const getlist = await this.ApptutorialService.getAppTutoiral();
+      const getlist = await this.ApptutorialService.getAppTutoiral(
+        Number(page),
+        Number(limit),
+      );
       return getlist;
     } catch (error) {
       return {

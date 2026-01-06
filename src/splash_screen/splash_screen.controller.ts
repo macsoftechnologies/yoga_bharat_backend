@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { SplashScreenService } from './splash_screen.service';
@@ -34,9 +35,12 @@ export class SplashScreenController {
   }
   @UseGuards(JwtGuard)
   @Get('/list')
-  async getSplashScreenList() {
+  async getSplashScreenList(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
-      const list = await this.splashScreenService.getSplashScreenList();
+      const list = await this.splashScreenService.getSplashScreenList(
+        Number(page),
+        Number(limit),
+      );
       return list;
     } catch (error) {
       return {

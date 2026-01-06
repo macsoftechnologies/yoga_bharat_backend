@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { PrivacyService } from './privacy.service';
@@ -33,9 +34,12 @@ export class PrivacyController {
   @UseGuards(JwtGuard)
   // @Roles(Role.ADMIN)
   @Get('/list')
-  async getPrivacy() {
+  async getPrivacy(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
-      const list = await this.privacyService.getPrivacy();
+      const list = await this.privacyService.getPrivacy(
+        Number(page),
+        Number(limit),
+      );
       return list;
     } catch (error) {
       return {

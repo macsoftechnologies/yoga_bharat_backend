@@ -67,21 +67,36 @@ export class UsersService {
     }
   }
 
-  async getHealthPreferences() {
+  async getHealthPreferences(page: number, limit: number) {
     try {
-      const getList = await this.healthModel.find();
-      if (getList.length > 0) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'List of Health Preferences',
-          data: getList,
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'No Health Preferences found.',
-        };
-      }
+      const skip = (page - 1) * limit;
+
+      const [getList, totalCount] = await Promise.all([
+        this.healthModel.find().skip(skip).limit(limit),
+        this.healthModel.countDocuments(),
+      ]);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of Health Preferences',
+        totalCount: totalCount,
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        limit,
+        data: getList,
+      };
+      // const getList = await this.healthModel.find();
+      // if (getList.length > 0) {
+      //   return {
+      //     statusCode: HttpStatus.OK,
+      //     message: 'List of Health Preferences',
+      //     data: getList,
+      //   };
+      // } else {
+      //   return {
+      //     statusCode: HttpStatus.NOT_FOUND,
+      //     message: 'No Health Preferences found.',
+      //   };
+      // }
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
