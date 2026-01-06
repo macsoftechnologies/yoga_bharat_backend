@@ -130,7 +130,9 @@ export class AdminService {
 
   async forgotPassword(req: adminDto) {
     try {
-      const findAdmin = await this.adminModel.findOne({ emailId: req.emailId });
+      const findAdmin = await this.adminModel.findOne({ 
+        $or: [{ emailId: req.emailId }, { mobileNumber: req.mobileNumber }],
+       });
       if (findAdmin) {
         const bcryptPassword = await this.authService.hashPassword(
           req.password,
