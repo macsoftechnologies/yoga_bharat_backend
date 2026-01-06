@@ -36,6 +36,19 @@ export class AdminController {
     }
   }
 
+  @Post('/verifyadmin')
+  async verifyAdmin(@Body() req: adminDto) {
+    try {
+      const loginadmin = await this.adminService.verifyOtp(req);
+      return loginadmin;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
   @Post('/adminforgotpassword')
   async adminForgotPassword(@Body() req: adminDto) {
     try {

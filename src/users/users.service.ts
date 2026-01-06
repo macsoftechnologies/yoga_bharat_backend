@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schema/user.schema';
 import { Model } from 'mongoose';
@@ -15,6 +15,8 @@ import { AuthService } from 'src/auth/auth.service';
 import { userEditDto } from './dto/user-edit.dto';
 import { certificateDto } from './dto/certificates.dto';
 import { Certificate } from './schema/cerificates.schema';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class UsersService {
@@ -989,12 +991,12 @@ export class UsersService {
       const findCertificates = await this.certificateModel.aggregate([
         {
           $lookup: {
-            from: "users",
-            localField: "userId",
-            foreignField: "userId",
-            as: "userId",
-          }
-        }
+            from: 'users',
+            localField: 'userId',
+            foreignField: 'userId',
+            as: 'userId',
+          },
+        },
       ]);
       if (findCertificates.length > 0) {
         return {
@@ -1042,24 +1044,70 @@ export class UsersService {
   }
 
   async deleteCertificate(req: certificateDto) {
-    try{
-      const removeCertificate = await this.certificateModel.deleteOne({certificateId: req.certificateId});
-      if(removeCertificate) {
+    try {
+      const removeCertificate = await this.certificateModel.deleteOne({
+        certificateId: req.certificateId,
+      });
+      if (removeCertificate) {
         return {
           statusCode: HttpStatus.OK,
-          message: "Certificate Deleted Successfully",
-        }
+          message: 'Certificate Deleted Successfully',
+        };
       } else {
         return {
           statusCode: HttpStatus.EXPECTATION_FAILED,
-          message: "Failed to delete certificate",
-        }
+          message: 'Failed to delete certificate',
+        };
       }
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
-      }
+      };
     }
+  }
+
+  async addJourneyImage(userId: string, filename: string) {
+    return this.userModel.findOneAndUpdate(
+      { userId: userId },
+      {
+        $push: { journey_images: filename },
+      },
+      { new: true },
+    );
+  }
+
+  deleteFileFromFilesFolder(filename: string) {
+    const filePath = path.join(process.cwd(), 'files', filename);
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+
+  async removeJourneyImageByName(userId: string, imageName: string) {
+    const user = await this.userModel.findOne({userId: userId});
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.journey_images.includes(imageName)) {
+      throw new NotFoundException('Image not found');
+    }
+
+    // remove from DB
+    user.journey_images = user.journey_images.filter(
+      (img) => img !== imageName,
+    );
+    await user.save();
+
+    // delete physical file
+    this.deleteFileFromFilesFolder(imageName);
+
+    return {
+      message: 'Journey image removed successfully',
+      journey_images: user.journey_images,
+    };
   }
 }

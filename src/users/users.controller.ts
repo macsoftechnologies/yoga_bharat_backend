@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   HttpStatus,
   Post,
   Query,
+  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -14,6 +16,8 @@ import { healthPreferenceDto } from './dto/health_preference.dto';
 import {
   AnyFilesInterceptor,
   FileFieldsInterceptor,
+  FileInterceptor,
+  FilesInterceptor,
 } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -533,5 +537,39 @@ export class UsersController {
         message: error,
       };
     }
+  }
+
+  @Post('/journey-image/add')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './files',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  async addJourneyImage(
+    @Body('userId') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Image is required');
+    }
+
+    return this.usersService.addJourneyImage(userId, file.filename);
+  }
+
+  @Post('/journey-image/remove')
+  async removeJourneyImage(
+    @Body('userId') userId: string,
+    @Body('imageName') imageName: string,
+  ) {
+    return this.usersService.removeJourneyImageByName(userId, imageName);
   }
 }

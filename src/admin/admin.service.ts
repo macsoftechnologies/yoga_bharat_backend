@@ -14,12 +14,15 @@ export class AdminService {
 
   async createAdmin(req: adminDto) {
     try {
-      const findAdmin = await this.adminModel.findOne({ emailId: req.emailId });
+      const findAdmin = await this.adminModel.findOne({
+        $or: [{ emailId: req.emailId }, { mobileNumber: req.mobileNumber }],
+      });
       if (!findAdmin) {
         const bcryptPassword = await this.authService.hashPassword(
           req.password,
         );
         const createAdmin = await this.adminModel.create({
+          mobileNumber: req.mobileNumber,
           emailId: req.emailId,
           password: bcryptPassword,
         });
@@ -37,10 +40,10 @@ export class AdminService {
         }
       }
 
-        return {
-          statusCode: HttpStatus.CONFLICT,
-          message: 'Admin already existed',
-        };
+      return {
+        statusCode: HttpStatus.CONFLICT,
+        message: 'Admin already existed',
+      };
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -51,7 +54,9 @@ export class AdminService {
 
   async loginAdmin(req: adminDto) {
     try {
-      const findAdmin = await this.adminModel.findOne({ emailId: req.emailId });
+      const findAdmin = await this.adminModel.findOne({
+        $or: [{ emailId: req.emailId }, { mobileNumber: req.mobileNumber }],
+      });
       if (!findAdmin) {
         return {
           statusCode: HttpStatus.NOT_FOUND,
@@ -64,20 +69,56 @@ export class AdminService {
         );
         // console.log(matchPassword);
         if (matchPassword) {
-          const jwtToken = await this.authService.createToken({ findAdmin });
-          //   console.log(jwtToken);
           return {
             statusCode: HttpStatus.OK,
-            message: 'Admin Login successfull',
-            token: jwtToken,
+            message: 'Credentials Matched. Please Verify OTP',
             data: findAdmin,
           };
+          // const jwtToken = await this.authService.createToken({ findAdmin });
+          //   console.log(jwtToken);
+          // return {
+          //   statusCode: HttpStatus.OK,
+          //   message: 'Admin Login successfull',
+          //   token: jwtToken,
+          //   data: findAdmin,
+          // };
         } else {
           return {
             statusCode: HttpStatus.BAD_REQUEST,
             message: 'Password incorrect',
           };
         }
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  async verifyOtp(req: adminDto) {
+    try {
+      const findAdmin = await this.adminModel.findOne({ adminId: req.adminId });
+      if (findAdmin && req.otp == '1234') {
+        const jwtToken = await this.authService.createToken({ findAdmin });
+        // console.log(jwtToken);
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Admin Login successfull',
+          token: jwtToken,
+          data: findAdmin,
+        };
+      } else if (findAdmin && req.otp != '1234') {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Invalid OTP',
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Admin not found',
+        };
       }
     } catch (error) {
       return {
