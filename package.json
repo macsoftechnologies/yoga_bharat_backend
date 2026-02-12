@@ -30,7 +30,9 @@
     "@nestjs/mongoose": "^11.0.3",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.11",
     "@nestjs/swagger": "^11.2.3",
+    "@nestjs/websockets": "^11.1.11",
     "@types/multer": "^2.0.0",
     "@types/uuid": "^10.0.0",
     "axios": "^1.13.2",
@@ -40,6 +42,7 @@
     "cross-env": "^10.0.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "firebase-admin": "^13.6.0",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.30.1",
     "mongoose": "^8.20.1",
@@ -48,6 +51,7 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3",
     "uuid": "^7.0.3"
   },
   "devDependencies": {
@@ -61,6 +65,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
+    "@types/socket.io": "^3.0.1",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",

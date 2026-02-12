@@ -135,7 +135,7 @@ export class ApptutorialService {
       if (req.app_image) {
         const updateapp = await this.tutorialModel.updateOne(
           { appId: req.appId },
-          { $set: { app_image: req.app_image } },
+          { $set: { app_image: req.app_image, description: req.description } },
         );
 
         if (updateapp.modifiedCount) {

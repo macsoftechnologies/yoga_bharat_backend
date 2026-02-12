@@ -7,4 +7,6 @@ export class featuresDto {
   feature_image: string;
   @ApiProperty()
   usertype: string;
+  @ApiProperty()
+  link: string;
 }

@@ -32,6 +32,7 @@ export class SplashScreenService {
       };
     }
   }
+
   async getSplashScreenList(page: number, limit: number) {
     try {
       const skip = (page - 1) * limit;
@@ -56,9 +57,12 @@ export class SplashScreenService {
       };
     }
   }
+
   async getSplashScreenById(req: splashScreenDto) {
     try {
-      const splash = await this.splashModel.findOne({ splashscreenId: req.splashscreenId });
+      const splash = await this.splashModel.findOne({
+        splashscreenId: req.splashscreenId,
+      });
       if (splash) {
         return {
           statusCode: HttpStatus.OK,
@@ -78,14 +82,19 @@ export class SplashScreenService {
       };
     }
   }
+
   async updateSplashScreen(req: splashScreenDto) {
     try {
-      const update = await this.splashModel.updateOne({splashscreenId: req.splashscreenId}, {
-        $set: {
-          text: req.text,
-          screen_type: req.screen_type,
-        }
-      });
+      const update = await this.splashModel.updateOne(
+        { splashscreenId: req.splashscreenId },
+        {
+          $set: {
+            text: req.text,
+            screen_type: req.screen_type,
+            screen_no: req.screen_no,
+          },
+        },
+      );
       if (update) {
         return {
           statusCode: HttpStatus.OK,
@@ -105,9 +114,12 @@ export class SplashScreenService {
       };
     }
   }
+
   async deleteSplashScreen(req: splashScreenDto) {
     try {
-      const del = await this.splashModel.deleteOne({splashscreenId: req.splashscreenId});
+      const del = await this.splashModel.deleteOne({
+        splashscreenId: req.splashscreenId,
+      });
       if (del) {
         return {
           statusCode: HttpStatus.OK,
@@ -123,6 +135,31 @@ export class SplashScreenService {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
+      };
+    }
+  }
+
+  async getScreensByUserType(req: splashScreenDto) {
+    try {
+      const findScreens = await this.splashModel.findOne({
+        $and: [{ screen_type: req.screen_type }, { screen_no: req.screen_no }],
+      });
+      if (findScreens) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: `SplashScreen Tesxt of ${req.screen_no} for ${req.screen_type}. `,
+          data: findScreens,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "SplashScreen Text not found"
+        }
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
       };
     }
   }

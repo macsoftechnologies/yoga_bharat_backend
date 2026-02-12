@@ -7,6 +7,7 @@ import { User } from 'src/users/schema/user.schema';
 import { Earning } from '../booking/schema/earnings.scheam';
 import { earningDto } from './dto/earnings.dto';
 import { YogaDetails } from 'src/yoga/schema/yoga_details.schema';
+import { MyEarnings } from './schema/myearnings.schema';
 
 @Injectable()
 export class BookingService {
@@ -17,6 +18,8 @@ export class BookingService {
     private readonly earningModel: Model<Earning>,
     @InjectModel(YogaDetails.name)
     private readonly yogaModel: Model<YogaDetails>,
+    @InjectModel(MyEarnings.name)
+    private readonly myEarningModel: Model<MyEarnings>,
   ) {}
 
   private formatTimeToHHMMSS(time: string): string {
@@ -61,6 +64,12 @@ export class BookingService {
           message: 'Booking created successfully.',
           data: addbooking,
         };
+        //   }
+        // if (addbooking && bookingTrainers.length) {
+        //   await this.sendBookingNotificationToTrainers(
+        //     bookingTrainers,
+        //     addbooking,
+        //   );
       } else {
         return {
           statusCode: HttpStatus.EXPECTATION_FAILED,
@@ -75,65 +84,92 @@ export class BookingService {
     }
   }
 
-  async getBookings(
-    page: number,
-    limit: number,
-    filters: {
-      clientId?: string;
-      accepted_trainerId?: string;
-      status?: string;
-      yogaId?: string;
-      bookingId: string;
-    },
-  ) {
+  // async sendBookingNotificationToTrainers(
+  //   trainerIds: string[],
+  //   booking: any,
+  // ) {
+  //   const tokens = await this.fcmTokenModel.find({
+  //     userId: { $in: trainerIds },
+  //   });
+
+  //   if (!tokens.length) return;
+
+  //   const messages = tokens.map((t) => ({
+  //     token: t.fcmToken,
+  //     notification: {
+  //       title: 'New Booking Assigned 🧘',
+  //       body: `Session on ${booking.scheduledDate.toDateString()} at ${booking.time}`,
+  //     },
+  //     data: {
+  //       bookingId: booking._id.toString(),
+  //       yogaId: booking.yogaId.toString(),
+  //       clientId: booking.clientId.toString(),
+  //       sessionId: booking.sessionId?.toString() || '',
+  //       type: 'NEW_BOOKING',
+  //     },
+  //   }));
+
+  //   const response = await admin.messaging().sendEach(messages);
+
+  //   response.responses.forEach(async (res, index) => {
+  //     if (!res.success) {
+  //       const errorCode = res.error?.code;
+  //       if (
+  //         errorCode === 'messaging/registration-token-not-registered' ||
+  //         errorCode === 'messaging/invalid-registration-token'
+  //       ) {
+  //         await this.fcmTokenModel.deleteOne({
+  //           fcmToken: tokens[index].fcmToken,
+  //         });
+  //       }
+  //     }
+  //   });
+  // }
+
+  async getBookings(page: number, limit: number, filters: any) {
     try {
       const skip = (page - 1) * limit;
 
-      // 🔹 Build dynamic match object
       const match: any = {};
 
-      if (filters.bookingId) {
-        match.bookingId = filters.bookingId;
-      }
-
-      if (filters.clientId) {
-        match.clientId = filters.clientId;
-      }
-
-      if (filters.accepted_trainerId) {
+      // 🔹 Basic Filters
+      if (filters.bookingId) match.bookingId = filters.bookingId;
+      if (filters.clientId) match.clientId = filters.clientId;
+      if (filters.accepted_trainerId)
         match.accepted_trainerId = filters.accepted_trainerId;
-      }
-
       if (filters.status) {
-        match.status = filters.status;
+        match.status = {
+          $regex: new RegExp(filters.status, 'i'),
+        };
+      }
+      if (filters.yogaId) match.yogaId = filters.yogaId;
+      if (filters.time) match.time = filters.time;
+      if (filters.bookingType) {
+        match.bookingType = {
+          $regex: new RegExp(filters.bookingType, 'i'),
+        };
       }
 
-      if (filters.yogaId) {
-        match.yogaId = filters.yogaId;
+      if (filters.scheduledDate) {
+        const date = new Date(filters.scheduledDate);
+
+        const options: Intl.DateTimeFormatOptions = { month: 'short' };
+        const month = date.toLocaleString('en-US', options); // Feb
+        const day = date.getDate();
+        const year = date.getFullYear();
+
+        const formattedDate = `${month} ${day} ${year}`;
+
+        match.scheduledDate = {
+          $regex: formattedDate,
+          $options: 'i',
+        };
       }
 
-      // 🔹 Count total documents with filters
-      const totalCount = await this.bookingModel.countDocuments(match);
-
-      const bookings = await this.bookingModel.aggregate([
+      const pipeline: any[] = [
         { $match: match },
 
-        {
-          $lookup: {
-            from: 'languages',
-            localField: 'languageId',
-            foreignField: 'languageId',
-            as: 'languageId',
-          },
-        },
-        {
-          $lookup: {
-            from: 'yogadetails',
-            localField: 'yogaId',
-            foreignField: 'yogaId',
-            as: 'yogaId',
-          },
-        },
+        // 🔹 Lookups
         {
           $lookup: {
             from: 'users',
@@ -142,6 +178,8 @@ export class BookingService {
             as: 'clientId',
           },
         },
+        { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
+
         {
           $lookup: {
             from: 'users',
@@ -151,36 +189,69 @@ export class BookingService {
           },
         },
         {
-          $lookup: {
-            from: 'users',
-            localField: 'trainerIds',
-            foreignField: 'userId',
-            as: 'trainerIds',
-          },
-        },
-        {
-          $lookup: {
-            from: 'sessions',
-            localField: 'sessionId',
-            foreignField: 'sessionId',
-            as: 'sessionId',
-          },
-        },
-        {
-          $lookup: {
-            from: 'transactions',
-            localField: 'transactionId',
-            foreignField: 'transactionId',
-            as: 'transactionId',
+          $unwind: {
+            path: '$accepted_trainerId',
+            preserveNullAndEmptyArrays: true,
           },
         },
 
-        { $skip: skip },
-        { $limit: limit },
-      ]);
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'yogaId',
+            foreignField: 'yogaId',
+            as: 'yogaId',
+          },
+        },
+        { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+      ];
+
+      // 🔥 Name Filtering After Lookup
+      const nameMatch: any = {};
+
+      if (filters.clientName) {
+        nameMatch['clientId.name'] = {
+          $regex: filters.clientName,
+          $options: 'i',
+        };
+      }
+
+      if (filters.trainerName) {
+        nameMatch['accepted_trainerId.name'] = {
+          $regex: filters.trainerName,
+          $options: 'i',
+        };
+      }
+
+      if (filters.yogaName) {
+        nameMatch['yogaId.yoga_name'] = {
+          $regex: filters.yogaName,
+          $options: 'i',
+        };
+      }
+
+      if (Object.keys(nameMatch).length > 0) {
+        pipeline.push({ $match: nameMatch });
+      }
+
+      // 🔹 Sort
+      pipeline.push({ $sort: { createdAt: -1 } });
+
+      // 🔹 Pagination using $facet (Professional way)
+      pipeline.push({
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limit }],
+          totalCount: [{ $count: 'count' }],
+        },
+      });
+
+      const result = await this.bookingModel.aggregate(pipeline);
+
+      const bookings = result[0].data;
+      const totalCount = result[0].totalCount[0]?.count || 0;
 
       return {
-        statusCode: HttpStatus.OK,
+        statusCode: 200,
         message: 'List of Bookings',
         currentPage: page,
         limit,
@@ -190,7 +261,7 @@ export class BookingService {
       };
     } catch (error) {
       return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        statusCode: 500,
         message: error.message || error,
       };
     }
@@ -274,6 +345,17 @@ export class BookingService {
             date: findBooking.scheduledDate,
           });
           if (addEarning) {
+            const earnedAmount =
+              parseInt(findYoga.client_price) -
+              parseInt(findYoga.trainer_price);
+            const addmyEarning = await this.myEarningModel.create({
+              learner_id: findBooking.clientId,
+              trainer_id: findBooking.accepted_trainerId,
+              earned_amount: earnedAmount,
+              date: findBooking.scheduledDate,
+              bookingId: req.bookingId,
+              yogaId: findBooking.yogaId,
+            });
             return {
               statusCode: HttpStatus.OK,
               message: 'Earning added successfully',
@@ -311,11 +393,11 @@ export class BookingService {
         { $match: { trainerId: req.trainerId } },
         {
           $lookup: {
-            from: "users",
-            localField: "clientId",
-            foreignField: "userId",
-            as: "clientId"
-          }
+            from: 'users',
+            localField: 'clientId',
+            foreignField: 'userId',
+            as: 'clientId',
+          },
         },
         {
           $lookup: {
@@ -392,11 +474,11 @@ export class BookingService {
         },
         {
           $lookup: {
-            from: "users",
-            localField: "clientId",
-            foreignField: "userId",
-            as: "clientId"
-          }
+            from: 'users',
+            localField: 'clientId',
+            foreignField: 'userId',
+            as: 'clientId',
+          },
         },
         {
           $lookup: {

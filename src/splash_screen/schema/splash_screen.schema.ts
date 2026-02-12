@@ -9,6 +9,8 @@ export class SplashScreen extends Document {
   text: string;
   @Prop()
   screen_type: string;
+  @Prop()
+  screen_no: string;
 }
 
 export const splashScreenSchema = SchemaFactory.createForClass(SplashScreen);

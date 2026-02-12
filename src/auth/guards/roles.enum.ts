@@ -8,3 +8,8 @@ export enum EKYCstatus {
     PENDING = 'pending',
     APPROVED = 'approved'
 }
+
+export enum CallRequestStatus {
+    PENDING = 'pending',
+    COMPLETED = 'completed'
+}

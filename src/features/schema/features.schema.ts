@@ -9,6 +9,8 @@ export class FeatureDetails extends Document {
   feature_image: string;
   @Prop()
   usertype: string;
+  @Prop()
+  link: string;
 }
 
 export const FeatureDetailsSchema =

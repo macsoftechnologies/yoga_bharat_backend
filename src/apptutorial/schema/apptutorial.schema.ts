@@ -9,6 +9,8 @@ export class AppTutorial extends Document {
   app_image: string;
   @Prop()
   usertype: string;
+  @Prop()
+  description: string;
 }
 
 export const AppTutorialSchema = SchemaFactory.createForClass(AppTutorial);

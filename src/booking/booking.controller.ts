@@ -46,6 +46,9 @@ export class BookingController {
       status: query.status,
       yogaId: query.yogaId,
       bookingId: query.bookingId,
+      scheduledDate: query.scheduledDate,
+      time: query.time,
+      bookingType: query.bookingType,
     });
   }
 

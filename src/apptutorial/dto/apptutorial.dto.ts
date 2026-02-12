@@ -7,4 +7,6 @@ export class apptutorialDto {
   app_image: string;
   @ApiProperty()
   usertype: string;
+  @ApiProperty()
+  description: string;
 }

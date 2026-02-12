@@ -7,4 +7,6 @@ export class splashScreenDto {
   text: string;
   @ApiProperty()
   screen_type: string;
+  @ApiProperty()
+  screen_no: string;
 }

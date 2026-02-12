@@ -6,6 +6,7 @@ import { Booking, bookingSchema } from './schema/booking.schema';
 import { User, userSchema } from 'src/users/schema/user.schema';
 import { Earning, earningSchema } from '../booking/schema/earnings.scheam';
 import { YogaDetails, yogaDetailsSchema } from 'src/yoga/schema/yoga_details.schema';
+import { MyEarnings, myEarningSchema } from './schema/myearnings.schema';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { YogaDetails, yogaDetailsSchema } from 'src/yoga/schema/yoga_details.sch
       { name: Booking.name, schema: bookingSchema },
       { name: User.name, schema: userSchema },
       { name: Earning.name, schema: earningSchema },
+      { name: MyEarnings.name, schema: myEarningSchema },
       { name: YogaDetails.name, schema: yogaDetailsSchema },
     ]),
   ],

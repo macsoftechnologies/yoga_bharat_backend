@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { APP_GUARD } from '@nestjs/core';
@@ -18,6 +18,7 @@ import { TermsModule } from './terms/terms.module';
 import { BookingModule } from './booking/booking.module';
 import { FeaturesModule } from './features/features.module';
 import { ApptutorialModule } from './apptutorial/apptutorial.module';
+import { CallbackModule } from './callback/callback.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ApptutorialModule } from './apptutorial/apptutorial.module';
     BookingModule,
     FeaturesModule,
     ApptutorialModule,
+    CallbackModule,
   ],
   controllers: [AppController],
   providers: [

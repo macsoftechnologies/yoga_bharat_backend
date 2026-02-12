@@ -90,4 +90,17 @@ export class SplashScreenController {
       };
     }
   }
+
+  @Post('/screensbytype')
+  async splashScreensByType(@Body() req: splashScreenDto) {
+    try {
+      const list = await this.splashScreenService.getScreensByUserType(req);
+      return list;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
 }

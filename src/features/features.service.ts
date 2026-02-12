@@ -121,7 +121,7 @@ export class FeaturesService {
       }
 
       if (image) {
-       const reqDoc = image.map((doc, index) => {
+        const reqDoc = image.map((doc, index) => {
           let IsPrimary = false;
           if (index == 0) {
             IsPrimary = true;
@@ -136,7 +136,7 @@ export class FeaturesService {
       if (req.feature_image) {
         const updatefeatures = await this.featureModel.updateOne(
           { featureId: req.featureId },
-          { $set: { feature_image: req.feature_image } },
+          { $set: { feature_image: req.feature_image, link: req.link } },
         );
 
         if (updatefeatures.modifiedCount) {
