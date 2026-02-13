@@ -1,13 +1,17 @@
 import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Booking } from './schema/booking.schema';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
 import { bookingDto } from './dto/booking.dto';
 import { User } from 'src/users/schema/user.schema';
 import { Earning } from '../booking/schema/earnings.scheam';
 import { earningDto } from './dto/earnings.dto';
 import { YogaDetails } from 'src/yoga/schema/yoga_details.schema';
 import { MyEarnings } from './schema/myearnings.schema';
+import { MonthlyBookingStatsDto } from './dto/monthlybooking.dto';
+import { MonthlyEarningStatsDto } from './dto/monthlymyearning.dto';
+import { YogaBookingStatsDto } from './dto/yogabookings.dto';
+import { DashboardStatsDto } from './dto/Dashboardstats.dto';
 
 @Injectable()
 export class BookingService {
@@ -204,6 +208,15 @@ export class BookingService {
           },
         },
         { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'languages',
+            localField: 'languageId',
+            foreignField: 'languageId',
+            as: 'languageId',
+          },
+        },
+        { $unwind: { path: '$languageId', preserveNullAndEmptyArrays: true } },
       ];
 
       // 🔥 Name Filtering After Lookup
@@ -515,5 +528,283 @@ export class BookingService {
         message: error.message,
       };
     }
+  }
+
+  async getMonthlyBookingStats(
+    year?: number,
+  ): Promise<MonthlyBookingStatsDto[]> {
+    const currentYear = year || new Date().getFullYear();
+
+    const bookings = await this.bookingModel
+      .find({
+        scheduledDate: { $exists: true, $ne: null },
+      })
+      .lean()
+      .exec();
+
+    const monthCounts: { [key: number]: number } = {};
+
+    bookings.forEach((booking: any) => {
+      if (booking.scheduledDate && booking.scheduledDate !== '') {
+        const date = new Date(booking.scheduledDate);
+
+        if (!isNaN(date.getTime()) && date.getFullYear() === currentYear) {
+          const month = date.getMonth() + 1; // 1-12
+          monthCounts[month] = (monthCounts[month] || 0) + 1;
+        }
+      }
+    });
+
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const results: MonthlyBookingStatsDto[] = monthNames.map(
+      (monthName, index) => ({
+        month: monthName,
+        bookingCount: monthCounts[index + 1] || 0,
+        year: currentYear,
+      }),
+    );
+
+    return results;
+  }
+
+  async getMonthlyEarningsStats(
+    year?: number,
+  ): Promise<MonthlyEarningStatsDto[]> {
+    const currentYear = year || new Date().getFullYear();
+
+    const earnings = await this.myEarningModel
+      .find({
+        date: { $exists: true, $ne: null },
+      })
+      .lean()
+      .exec();
+
+    const monthData: { [key: number]: { count: number; total: number } } = {};
+
+    earnings.forEach((earning: any) => {
+      if (earning.date && earning.date !== '') {
+        const date = new Date(earning.date);
+
+        if (!isNaN(date.getTime()) && date.getFullYear() === currentYear) {
+          const month = date.getMonth() + 1; // 1-12
+
+          if (!monthData[month]) {
+            monthData[month] = { count: 0, total: 0 };
+          }
+
+          monthData[month].count += 1;
+
+          const amount = parseFloat(earning.earned_amount) || 0;
+          monthData[month].total += amount;
+        }
+      }
+    });
+
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const results: MonthlyEarningStatsDto[] = monthNames.map(
+      (monthName, index) => ({
+        month: monthName,
+        earningCount: monthData[index + 1]?.count || 0,
+        totalAmount: monthData[index + 1]?.total || 0,
+        year: currentYear,
+      }),
+    );
+
+    return results;
+  }
+
+  async getYogaBookingStats(): Promise<YogaBookingStatsDto[]> {
+    // Fetch all bookings that have a yogaId
+    const bookings = await this.bookingModel
+      .find({
+        yogaId: { $exists: true, $ne: null },
+      })
+      .lean()
+      .exec();
+
+    // Calculate total bookings
+    const totalBookings = bookings.length;
+
+    // Group by yogaId and count
+    const yogaCounts: { [key: string]: number } = {};
+
+    bookings.forEach((booking: any) => {
+      const yogaId = booking.yogaId;
+      // Also filter out empty strings here
+      if (yogaId && yogaId !== '') {
+        yogaCounts[yogaId] = (yogaCounts[yogaId] || 0) + 1;
+      }
+    });
+
+    // Fetch yoga names from Yoga collection
+    const yogaIds = Object.keys(yogaCounts);
+    const yogaNames = await this.getYogaNames(yogaIds);
+
+    // Build result with percentages
+    const results: YogaBookingStatsDto[] = Object.entries(yogaCounts).map(
+      ([yogaId, count]) => ({
+        yoga_id: yogaId,
+        yoga_name: yogaNames[yogaId] || 'Unknown Yoga',
+        bookingCount: count,
+        percentage:
+          totalBookings > 0
+            ? parseFloat(((count / totalBookings) * 100).toFixed(2))
+            : 0,
+      }),
+    );
+
+    // Sort by booking count (descending)
+    results.sort((a, b) => b.bookingCount - a.bookingCount);
+
+    return results;
+  }
+
+  private async getYogaNames(
+    yogaIds: string[],
+  ): Promise<{ [key: string]: string }> {
+    const yogas = await this.yogaModel
+      .find({ yogaId: { $in: yogaIds } })
+      .lean()
+      .exec();
+
+    const nameMap: { [key: string]: string } = {};
+    yogas.forEach((yoga: any) => {
+      nameMap[yoga.yogaId] = yoga.yoga_name || 'Unnamed Yoga';
+    });
+
+    return nameMap;
+  }
+
+  async getDashboardStats(
+    fromDate: string,
+    toDate: string,
+  ): Promise<DashboardStatsDto> {
+    const startDate = new Date(fromDate);
+    const endDate = new Date(toDate);
+
+    endDate.setHours(23, 59, 59, 999);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new Error('Invalid date format');
+    }
+
+    const bookings = await this.bookingModel
+      .find({
+        scheduledDate: { $exists: true, $ne: null },
+      })
+      .lean()
+      .exec();
+
+    const filteredBookings = bookings.filter((booking: any) => {
+      if (booking.scheduledDate && booking.scheduledDate !== '') {
+        const bookingDate = new Date(booking.scheduledDate);
+        return (
+          !isNaN(bookingDate.getTime()) &&
+          bookingDate >= startDate &&
+          bookingDate <= endDate
+        );
+      }
+      return false;
+    });
+
+    const totalBookings = filteredBookings.length;
+
+    const earnings = await this.myEarningModel
+      .find({
+        date: { $exists: true, $ne: null },
+      })
+      .lean()
+      .exec();
+
+    const filteredEarnings = earnings.filter((earning: any) => {
+      if (earning.date && earning.date !== '') {
+        const earningDate = new Date(earning.date);
+        return (
+          !isNaN(earningDate.getTime()) &&
+          earningDate >= startDate &&
+          earningDate <= endDate
+        );
+      }
+      return false;
+    });
+
+    const totalEarnings = filteredEarnings.length;
+    const totalEarningsAmount = filteredEarnings.reduce((sum, earning: any) => {
+      return sum + (parseFloat(earning.earned_amount) || 0);
+    }, 0);
+
+    const uniqueClientIds = new Set<string>();
+    filteredBookings.forEach((booking: any) => {
+      if (
+        booking.clientId &&
+        booking.clientId !== '' &&
+        booking.clientId !== 'not given'
+      ) {
+        uniqueClientIds.add(booking.clientId);
+      }
+    });
+
+    const clientUsers = await this.userModel
+      .find({
+        userId: { $in: Array.from(uniqueClientIds) },
+        role: 'client',
+      })
+      .lean()
+      .exec();
+
+    const activeClients = clientUsers.length;
+
+    const uniqueTrainerIds = new Set<string>();
+    filteredBookings.forEach((booking: any) => {
+      if (booking.accepted_trainerId && booking.accepted_trainerId !== '') {
+        uniqueTrainerIds.add(booking.accepted_trainerId);
+      }
+    });
+
+    const trainerUsers = await this.userModel
+      .find({
+        userId: { $in: Array.from(uniqueTrainerIds) },
+        role: 'trainer',
+      })
+      .lean()
+      .exec();
+
+    const activeTrainers = trainerUsers.length;
+
+    return {
+      totalEarnings,
+      totalEarningsAmount: parseFloat(totalEarningsAmount.toFixed(2)),
+      totalBookings,
+      activeClients,
+      activeTrainers,
+      fromDate,
+      toDate,
+    };
   }
 }

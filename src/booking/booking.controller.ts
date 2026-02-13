@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -14,6 +15,10 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/guards/roles.decorator';
 import { Role } from 'src/auth/guards/roles.enum';
 import { earningDto } from './dto/earnings.dto';
+import { MonthlyBookingsResponseDto } from './dto/monthlybooking.dto';
+import { MonthlyEarningsResponseDto } from './dto/monthlymyearning.dto';
+import { YogaBookingsResponseDto } from './dto/yogabookings.dto';
+import { DashboardStatsDto } from './dto/Dashboardstats.dto';
 
 @Controller('booking')
 export class BookingController {
@@ -118,5 +123,70 @@ export class BookingController {
         message: error,
       };
     }
+  }
+
+  @Get('monthly-stats')
+  async getMonthlyBookingStats(
+    @Query('year') year?: string,
+  ): Promise<MonthlyBookingsResponseDto> {
+    const yearNumber = year ? parseInt(year, 10) : undefined;
+    const data = await this.bookingService.getMonthlyBookingStats(yearNumber);
+
+    const total = data.reduce((sum, item) => sum + item.bookingCount, 0);
+
+    return {
+      data,
+      total,
+    };
+  }
+
+  @Get('monthly-myearning-stats')
+  async getMonthlyEarningsStats(
+    @Query('year') year?: string,
+  ): Promise<MonthlyEarningsResponseDto> {
+    const yearNumber = year ? parseInt(year, 10) : undefined;
+    const data = await this.bookingService.getMonthlyEarningsStats(yearNumber);
+
+    const totalTransactions = data.reduce(
+      (sum, item) => sum + item.earningCount,
+      0,
+    );
+    const totalEarnings = data.reduce((sum, item) => sum + item.totalAmount, 0);
+
+    return {
+      data,
+      totalEarnings,
+      totalTransactions,
+    };
+  }
+
+  @Get('yoga-distribution')
+  async getYogaBookingStats(): Promise<YogaBookingsResponseDto> {
+    const data = await this.bookingService.getYogaBookingStats();
+
+    const totalBookings = data.reduce(
+      (sum, item) => sum + item.bookingCount,
+      0,
+    );
+
+    return {
+      data,
+      totalBookings,
+    };
+  }
+
+  @Get('dashboard-stats')
+  async getDashboardStats(
+    @Query('fromDate') fromDate: string,
+    @Query('toDate') toDate: string,
+  ): Promise<DashboardStatsDto> {
+    // Validate required query parameters
+    if (!fromDate || !toDate) {
+      throw new BadRequestException(
+        'fromDate and toDate query parameters are required',
+      );
+    }
+
+    return await this.bookingService.getDashboardStats(fromDate, toDate);
   }
 }

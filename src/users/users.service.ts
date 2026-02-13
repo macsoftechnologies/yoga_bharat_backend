@@ -1081,48 +1081,4 @@ export class UsersService {
       };
     }
   }
-
-  async addJourneyImage(userId: string, filename: string) {
-    return this.userModel.findOneAndUpdate(
-      { userId: userId },
-      {
-        $push: { journey_images: filename },
-      },
-      { new: true },
-    );
-  }
-
-  deleteFileFromFilesFolder(filename: string) {
-    const filePath = path.join(process.cwd(), 'files', filename);
-
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  }
-
-  async removeJourneyImageByName(userId: string, imageName: string) {
-    const user = await this.userModel.findOne({userId: userId});
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (!user.journey_images.includes(imageName)) {
-      throw new NotFoundException('Image not found');
-    }
-
-    // remove from DB
-    user.journey_images = user.journey_images.filter(
-      (img) => img !== imageName,
-    );
-    await user.save();
-
-    // delete physical file
-    this.deleteFileFromFilesFolder(imageName);
-
-    return {
-      message: 'Journey image removed successfully',
-      journey_images: user.journey_images,
-    };
-  }
 }
