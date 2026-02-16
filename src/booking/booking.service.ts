@@ -136,7 +136,6 @@ export class BookingService {
 
       const match: any = {};
 
-      // 🔹 Basic Filters
       if (filters.bookingId) match.bookingId = filters.bookingId;
       if (filters.clientId) match.clientId = filters.clientId;
       if (filters.accepted_trainerId)
@@ -154,11 +153,79 @@ export class BookingService {
         };
       }
 
-      if (filters.scheduledDate) {
+      if (filters.fromDate || filters.toDate) {
+        const datePatterns: string[] = [];
+
+        const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
+        const toDate = filters.toDate ? new Date(filters.toDate) : null;
+
+        const formatDate = (date: Date): string => {
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const months = [
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+          ];
+
+          const dayName = days[date.getDay()];
+          const monthName = months[date.getMonth()];
+          const day = date.getDate();
+          const year = date.getFullYear();
+
+          return `${dayName} ${monthName} ${day} ${year}`;
+        };
+
+        if (fromDate && toDate) {
+          const current = new Date(fromDate);
+          while (current <= toDate) {
+            const dateStr = formatDate(current);
+            datePatterns.push(dateStr);
+            current.setDate(current.getDate() + 1);
+          }
+        } else if (fromDate) {
+          const current = new Date(fromDate);
+          const endDate = new Date(fromDate);
+          endDate.setDate(endDate.getDate() + 365);
+
+          while (current <= endDate) {
+            const dateStr = formatDate(current);
+            datePatterns.push(dateStr);
+            current.setDate(current.getDate() + 1);
+          }
+        } else if (toDate) {
+          const current = new Date(toDate);
+          current.setDate(current.getDate() - 365);
+          const endDate = new Date(toDate);
+
+          while (current <= endDate) {
+            const dateStr = formatDate(current);
+            datePatterns.push(dateStr);
+            current.setDate(current.getDate() + 1);
+          }
+        }
+
+        if (datePatterns.length > 0) {
+          const regexPattern = datePatterns.join('|');
+          match.scheduledDate = {
+            $regex: new RegExp(regexPattern, 'i'),
+          };
+        }
+      }
+
+      if (filters.scheduledDate && !filters.fromDate && !filters.toDate) {
         const date = new Date(filters.scheduledDate);
 
         const options: Intl.DateTimeFormatOptions = { month: 'short' };
-        const month = date.toLocaleString('en-US', options); // Feb
+        const month = date.toLocaleString('en-US', options);
         const day = date.getDate();
         const year = date.getFullYear();
 
@@ -170,10 +237,9 @@ export class BookingService {
         };
       }
 
-      const pipeline: any[] = [
-        { $match: match },
+      const pipeline: any[] = [{ $match: match }];
 
-        // 🔹 Lookups
+      pipeline.push(
         {
           $lookup: {
             from: 'users',
@@ -217,9 +283,8 @@ export class BookingService {
           },
         },
         { $unwind: { path: '$languageId', preserveNullAndEmptyArrays: true } },
-      ];
+      );
 
-      // 🔥 Name Filtering After Lookup
       const nameMatch: any = {};
 
       if (filters.clientName) {
@@ -247,10 +312,8 @@ export class BookingService {
         pipeline.push({ $match: nameMatch });
       }
 
-      // 🔹 Sort
       pipeline.push({ $sort: { createdAt: -1 } });
 
-      // 🔹 Pagination using $facet (Professional way)
       pipeline.push({
         $facet: {
           data: [{ $skip: skip }, { $limit: limit }],
@@ -273,6 +336,7 @@ export class BookingService {
         data: bookings,
       };
     } catch (error) {
+      console.error('Error in getBookings:', error);
       return {
         statusCode: 500,
         message: error.message || error,
@@ -806,5 +870,204 @@ export class BookingService {
       fromDate,
       toDate,
     };
+  }
+
+  async trainerDashboardApi(userId: string) {
+    try {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
+
+      const startOfMonth = new Date(currentYear, currentMonth, 1);
+      const endOfMonth = new Date(
+        currentYear,
+        currentMonth + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
+
+      const currentDay = currentDate.getDay();
+      const startOfWeek = new Date(currentDate);
+      startOfWeek.setDate(currentDate.getDate() - currentDay);
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const findTrainer = await this.userModel.aggregate([
+        { $match: { userId: userId } },
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'professional_details',
+            foreignField: 'yogaId',
+            as: 'yoga',
+          },
+        },
+        { $unwind: { path: '$yoga', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'earnings',
+            localField: 'userId',
+            foreignField: 'trainerId',
+            as: 'earnings',
+          },
+        },
+        {
+          $lookup: {
+            from: 'bookings',
+            localField: 'userId',
+            foreignField: 'accepted_trainerId',
+            as: 'allBookings',
+          },
+        },
+        {
+          $addFields: {
+            monthlyEarningsTotal: {
+              $sum: {
+                $map: {
+                  input: {
+                    $filter: {
+                      input: '$earnings',
+                      as: 'earning',
+                      cond: {
+                        $and: [
+                          { $gte: ['$$earning.createdAt', startOfMonth] },
+                          { $lte: ['$$earning.createdAt', endOfMonth] },
+                        ],
+                      },
+                    },
+                  },
+                  as: 'filteredEarning',
+                  in: {
+                    $cond: {
+                      if: { $isNumber: '$$filteredEarning.earned_amount' },
+                      then: '$$filteredEarning.earned_amount',
+                      else: {
+                        $toDouble: {
+                          $ifNull: ['$$filteredEarning.earned_amount', 0],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            weeklyBookingsCount: {
+              $size: {
+                $filter: {
+                  input: '$allBookings',
+                  as: 'booking',
+                  cond: {
+                    $and: [
+                      { $eq: ['$$booking.status', 'accepted'] },
+                      { $gte: ['$$booking.createdAt', startOfWeek] },
+                    ],
+                  },
+                },
+              },
+            },
+            acceptedBookings: {
+              $filter: {
+                input: '$allBookings',
+                as: 'booking',
+                cond: {
+                  $eq: ['$$booking.status', 'accepted'],
+                },
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            trainer_name: '$name',
+            yoga_name: '$yoga.yoga_name',
+            milestone: {
+              $let: {
+                vars: {
+                  roundedTo1000: {
+                    $multiply: [
+                      { $ceil: { $divide: ['$monthlyEarningsTotal', 1000] } },
+                      1000,
+                    ],
+                  },
+                },
+                in: {
+                  $cond: {
+                    if: { $lt: ['$$roundedTo1000', 1000] },
+                    then: 1000,
+                    else: {
+                      $multiply: [
+                        {
+                          $pow: [10, { $ceil: { $log10: '$$roundedTo1000' } }],
+                        },
+                        1,
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+            earning_overview: '$monthlyEarningsTotal',
+            weekly_bookings_count: '$weeklyBookingsCount',
+            accepted_bookings: '$acceptedBookings',
+          },
+        },
+      ]);
+
+      if (findTrainer && findTrainer.length > 0) {
+        const result = findTrainer[0];
+
+        // Filter upcoming bookings
+        const upcomingBookingsRaw =
+          result.accepted_bookings?.filter((booking) => {
+            const scheduledDate = new Date(booking.scheduledDate);
+            return scheduledDate >= currentDate;
+          }) || [];
+
+        // Fetch client and yoga details for each upcoming booking
+        const upcomingBookings = await Promise.all(
+          upcomingBookingsRaw.map(async (booking) => {
+            // Fetch client details
+            const clientDetails = await this.userModel
+              .findOne({ userId: booking.clientId })
+              .select('userId name profile_pic')
+              .lean();
+
+            // Fetch yoga details
+            const yogaDetails = await this.yogaModel
+              .findOne({ yogaId: booking.yogaId })
+              .select('yogaId yoga_name trainer_price duration')
+              .lean();
+
+            return {
+              ...booking,
+              clientDetails: clientDetails || null,
+              yogaDetails: yogaDetails || null,
+            };
+          }),
+        );
+
+        delete result.accepted_bookings;
+        result.upcoming_bookings = upcomingBookings;
+
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Trainer Details',
+          data: result,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Trainer not found',
+        };
+      }
+    } catch (error) {
+      console.error('Error in trainerDashboardApi:', error);
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
   }
 }

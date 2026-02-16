@@ -52,6 +52,8 @@ export class BookingController {
       yogaId: query.yogaId,
       bookingId: query.bookingId,
       scheduledDate: query.scheduledDate,
+      fromDate: query.fromDate, // ✅ New
+      toDate: query.toDate, // ✅ New
       time: query.time,
       bookingType: query.bookingType,
     });
@@ -188,5 +190,18 @@ export class BookingController {
     }
 
     return await this.bookingService.getDashboardStats(fromDate, toDate);
+  }
+
+  @Post('/trainerdashboard')
+  async trainerDashboard(@Body() body: { userId: string }) {
+    try{
+      const getdetails = await this.bookingService.trainerDashboardApi(body.userId);
+      return getdetails
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
   }
 }

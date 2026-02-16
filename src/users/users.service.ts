@@ -873,6 +873,18 @@ export class UsersService {
     try {
       const findUser = await this.userModel.findOne({ userId: req.userId });
       if (findUser && findUser.role === 'client') {
+        if (image) {
+          const reqDoc = image.map((doc, index) => {
+            let IsPrimary = false;
+            if (index == 0) {
+              IsPrimary = true;
+            }
+            const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+            return doc.filename;
+          });
+
+          req.profile_pic = reqDoc.toString();
+        }
         const edit = await this.userModel.updateOne(
           { userId: req.userId },
           {
@@ -882,6 +894,7 @@ export class UsersService {
               gender: req.gender,
               age: req.age,
               health_preference: req.health_preference,
+              profile_pic: req.profile_pic,
             },
           },
         );
