@@ -204,4 +204,17 @@ export class BookingController {
       }
     }
   }
+
+  @Post('/clientdashboard')
+  async clientDashboard(@Body() body: { userId: string }) {
+    try{
+      const getdetails = await this.bookingService.clientDashboardApi(body.userId);
+      return getdetails
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
 }

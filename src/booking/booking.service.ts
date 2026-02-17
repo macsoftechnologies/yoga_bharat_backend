@@ -1021,8 +1021,12 @@ export class BookingService {
         // Filter upcoming bookings
         const upcomingBookingsRaw =
           result.accepted_bookings?.filter((booking) => {
+            const [hours, minutes, seconds] = booking.time
+              .split(':')
+              .map(Number);
             const scheduledDate = new Date(booking.scheduledDate);
-            return scheduledDate >= currentDate;
+            scheduledDate.setHours(hours, minutes, seconds, 0);
+            return scheduledDate.getTime() >= currentDate.getTime();
           }) || [];
 
         // Fetch client and yoga details for each upcoming booking
@@ -1064,6 +1068,85 @@ export class BookingService {
       }
     } catch (error) {
       console.error('Error in trainerDashboardApi:', error);
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  async clientDashboardApi(userId: string) {
+    try {
+      const currentDate = new Date();
+
+      const findClient = await this.userModel.aggregate([
+        { $match: { userId: userId } },
+        {
+          $lookup: {
+            from: 'bookings',
+            localField: 'userId',
+            foreignField: 'clientId',
+            as: 'allBookings',
+          },
+        },
+        {
+          $project: {
+            client_name: '$name',
+            profile_pic: '$profile_pic',
+            accepted_bookings: '$allBookings',
+          },
+        },
+      ]);
+
+      if (findClient && findClient.length > 0) {
+        const result = findClient[0];
+
+        const upcomingBookingsRaw =
+          result.accepted_bookings?.filter((booking) => {
+            const [hours, minutes, seconds] = booking.time
+              .split(':')
+              .map(Number);
+            const scheduledDate = new Date(booking.scheduledDate);
+            scheduledDate.setHours(hours, minutes, seconds, 0);
+            return scheduledDate.getTime() >= currentDate.getTime();
+          }) || [];
+
+        const upcomingBookings = await Promise.all(
+          upcomingBookingsRaw.map(async (booking) => {
+            const trainerDetails = await this.userModel
+              .findOne({ userId: booking.accepted_trainerId })
+              .select('userId name profile_pic')
+              .lean();
+
+            const yogaDetails = await this.yogaModel
+              .findOne({ yogaId: booking.yogaId })
+              .select('yogaId yoga_name trainer_price duration')
+              .lean();
+
+            return {
+              ...booking,
+              trainerDetails: trainerDetails || null,
+              yogaDetails: yogaDetails || null,
+            };
+          }),
+        );
+
+        delete result.accepted_bookings;
+        result.upcoming_bookings = upcomingBookings;
+
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Client Details',
+          data: result,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Client not found',
+        };
+      }
+    } catch (error) {
+      console.error('Error in clientDashboardApi:', error);
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,

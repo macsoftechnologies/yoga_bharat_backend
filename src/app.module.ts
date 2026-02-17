@@ -19,6 +19,8 @@ import { BookingModule } from './booking/booking.module';
 import { FeaturesModule } from './features/features.module';
 import { ApptutorialModule } from './apptutorial/apptutorial.module';
 import { CallbackModule } from './callback/callback.module';
+import { TicketsModule } from './tickets/tickets.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { CallbackModule } from './callback/callback.module';
     FeaturesModule,
     ApptutorialModule,
     CallbackModule,
+    forwardRef(() => TicketsModule),
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [
