@@ -21,6 +21,8 @@ import { ApptutorialModule } from './apptutorial/apptutorial.module';
 import { CallbackModule } from './callback/callback.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SessionsModule } from './sessions/sessions.module';
+import { InAppNotificationsModule } from './in-app-notifications/in-app-notifications.module';
 
 @Module({
   imports: [
@@ -52,6 +54,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     CallbackModule,
     forwardRef(() => TicketsModule),
     NotificationsModule,
+    SessionsModule,
+    InAppNotificationsModule,
   ],
   controllers: [AppController],
   providers: [

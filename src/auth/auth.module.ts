@@ -6,11 +6,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './guards/roles.guard';
 import { ConfigService, ConfigModule } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
+import { SMSService } from './sms.service';
 
 @Module({
   imports: [
-    ConfigModule, // 👈 makes ConfigService available
-    PassportModule.register({ defaultStrategy: 'jwt' }), // 👈 register jwt with passport
+    ConfigModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -22,13 +23,14 @@ import { PassportModule } from '@nestjs/passport';
   ],
   providers: [
     AuthService,
-    JwtStrategy, // 👈 this registers the jwt strategy with passport
+    SMSService,
+    JwtStrategy, 
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
   ],
-  exports: [PassportModule, JwtModule], // 👈 export if needed elsewhere
+  exports: [PassportModule, JwtModule],
 })
 export class AuthModule {}
 

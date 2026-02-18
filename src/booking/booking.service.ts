@@ -12,6 +12,11 @@ import { MonthlyBookingStatsDto } from './dto/monthlybooking.dto';
 import { MonthlyEarningStatsDto } from './dto/monthlymyearning.dto';
 import { YogaBookingStatsDto } from './dto/yogabookings.dto';
 import { DashboardStatsDto } from './dto/Dashboardstats.dto';
+import { userRoomDetialsDto } from './dto/userRoomDetails.dto';
+import { SessionsService } from 'src/sessions/sessions.service';
+import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
+import { InAppNotifications } from 'src/in-app-notifications/schema/inapp.schema';
+import { inAppNotificationsDto } from 'src/in-app-notifications/dto/inapp.dto';
 
 @Injectable()
 export class BookingService {
@@ -24,6 +29,10 @@ export class BookingService {
     private readonly yogaModel: Model<YogaDetails>,
     @InjectModel(MyEarnings.name)
     private readonly myEarningModel: Model<MyEarnings>,
+    private readonly sessionsService: SessionsService,
+    private readonly inappNotificationService: InAppNotificationsService,
+    @InjectModel(InAppNotifications.name)
+    private readonly inAppNotificationModel: Model<InAppNotifications>,
   ) {}
 
   private formatTimeToHHMMSS(time: string): string {
@@ -375,6 +384,30 @@ export class BookingService {
         },
       );
       if (accept) {
+        const findBooking = await this.bookingModel.findOne({
+          bookingId: req.bookingId,
+        });
+        let inappDto: any = {} as inAppNotificationsDto;
+        const acceptNotification =
+          await this.inappNotificationService.addInAppNotification({
+            ...inappDto,
+            userId: findBooking?.clientId,
+            message: 'Yay! Your booking has been accepted by a trainer.',
+            type: 'accept_booking',
+          });
+        if (acceptNotification) {
+          await this.inAppNotificationModel.updateOne(
+            {
+              inapp_notification_id:
+                acceptNotification?.data?.inapp_notification_id,
+            },
+            {
+              $set: {
+                status: 'success',
+              },
+            },
+          );
+        }
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking accepted successfully',
@@ -1147,6 +1180,68 @@ export class BookingService {
       }
     } catch (error) {
       console.error('Error in clientDashboardApi:', error);
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  async sendInAppNotificationWithRoomDetails(req: userRoomDetialsDto) {
+    try {
+      const userDetails = await this.userModel.findOne({ userId: req.userId });
+      if (userDetails) {
+        await this.sessionsService.addroomsession({
+          ...req,
+          clientId: req.userId,
+        });
+        const findBooking = await this.bookingModel.findOne({
+          bookingId: req.bookingId,
+        });
+        const findTrainers = await this.userModel.find({
+          professional_details: findBooking?.yogaId,
+        });
+        if (findBooking && findTrainers.length > 0) {
+          await findTrainers.map(async (trainer) => {
+            const addNotification =
+              await this.inappNotificationService.addInAppBookingNotification({
+                ...req,
+                userId: trainer.userId,
+                message:
+                  'There is a new yoga session booking. Please checkout.',
+                type: 'booking',
+              });
+            if (addNotification) {
+              await this.inAppNotificationModel.updateOne(
+                {
+                  inapp_notification_id:
+                    addNotification.data?.inapp_notification_id,
+                },
+                {
+                  $set: {
+                    status: 'success',
+                  },
+                },
+              );
+              return {
+                statusCode: HttpStatus.OK,
+                message: "Sent Notifications to trainers"
+              }
+            }
+          });
+        } else {
+          return {
+            statusCode: HttpStatus.NOT_FOUND,
+            message: 'No Trainers Available for this yoga',
+          };
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'User not found',
+        };
+      }
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,

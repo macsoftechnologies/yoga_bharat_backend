@@ -5,12 +5,14 @@ import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { AuthService } from 'src/auth/auth.service';
 import axios from 'axios';
+import { SMSService } from 'src/auth/sms.service';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectModel(Admin.name) private readonly adminModel: Model<Admin>,
     private readonly authService: AuthService,
+    private readonly smsService: SMSService,
   ) {}
 
   async createAdmin(req: adminDto) {
@@ -58,69 +60,57 @@ export class AdminService {
       const findAdmin = await this.adminModel.findOne({
         $or: [{ emailId: req.emailId }, { mobileNumber: req.mobileNumber }],
       });
+
       if (!findAdmin) {
         return {
           statusCode: HttpStatus.NOT_FOUND,
           message: 'Admin Not Found',
         };
-      } else {
-        const matchPassword = await this.authService.comparePassword(
-          req.password,
-          findAdmin.password,
-        );
-        // console.log(matchPassword);
-        if (matchPassword) {
-          let generatedOtp = Math.floor(1000 + Math.random() * 900000);
-          const updateOTP = await this.adminModel.updateOne(
-            { adminId: findAdmin.adminId },
-            {
-              $set: {
-                otp: generatedOtp,
-              },
-            },
-          );
-          if (updateOTP.modifiedCount <= 0) {
-            return {
-              statusCode: HttpStatus.BAD_REQUEST,
-              message: 'Unable to sent OTP',
-            };
-          }
-          const sendOTP = await axios.post(
-            `https://restapi.smscountry.com/v0.1/Accounts/${process.env.SMS_AUTH_KEY}/SMSes/`,
-            {
-              Text: `Your OTP for Yoga Bharath verification is ${generatedOtp}. Do not share this OTP with anyone.`,
-              Number: `91${findAdmin.mobileNumber}`,
-              SenderId: process.env.SENDER_ID,
-            },
-            {
-              headers: {
-                Authorization: `Basic ${Buffer.from(
-                  `${process.env.SMS_AUTH_KEY}:${process.env.PASSWORD}`,
-                ).toString('base64')}`,
-                'Content-Type': 'application/json',
-              },
-            },
-          );
-
-          if (sendOTP) {
-            return {
-              statusCode: HttpStatus.OK,
-              message: 'Credentials Matched. Please Verify OTP',
-              data: findAdmin,
-            };
-          } else {
-            return {
-              statusCode: HttpStatus.EXPECTATION_FAILED,
-              message: 'failed to send otp',
-            };
-          }
-        } else {
-          return {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: 'Password incorrect',
-          };
-        }
       }
+
+      const matchPassword = await this.authService.comparePassword(
+        req.password,
+        findAdmin.password,
+      );
+
+      if (!matchPassword) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Password incorrect',
+        };
+      }
+
+      const generatedOtp = Math.floor(1000 + Math.random() * 900000);
+
+      const updateOTP = await this.adminModel.updateOne(
+        { adminId: findAdmin.adminId },
+        { $set: { otp: generatedOtp } },
+      );
+
+      if (updateOTP.modifiedCount <= 0) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Unable to send OTP',
+        };
+      }
+
+      const otpSent = await this.smsService.sendOtp(
+        findAdmin.mobileNumber,
+        generatedOtp,
+      );
+
+      if (!otpSent) {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: 'Failed to send OTP',
+        };
+      }
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Credentials Matched. Please Verify OTP',
+        data: findAdmin,
+      };
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -145,8 +135,8 @@ export class AdminService {
         } else {
           return {
             statuCode: HttpStatus.BAD_REQUEST,
-            message: "Invalid OTP",
-          }
+            message: 'Invalid OTP',
+          };
         }
       } else {
         return {

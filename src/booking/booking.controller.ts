@@ -19,6 +19,7 @@ import { MonthlyBookingsResponseDto } from './dto/monthlybooking.dto';
 import { MonthlyEarningsResponseDto } from './dto/monthlymyearning.dto';
 import { YogaBookingsResponseDto } from './dto/yogabookings.dto';
 import { DashboardStatsDto } from './dto/Dashboardstats.dto';
+import { userRoomDetialsDto } from './dto/userRoomDetails.dto';
 
 @Controller('booking')
 export class BookingController {
@@ -210,6 +211,19 @@ export class BookingController {
     try{
       const getdetails = await this.bookingService.clientDashboardApi(body.userId);
       return getdetails
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
+  @Post('/sessiondetails')
+  async sessionDetails(@Body() req: userRoomDetialsDto) {
+    try{
+      const details = await this.bookingService.sendInAppNotificationWithRoomDetails(req);
+      return details
     } catch(error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
