@@ -20,6 +20,8 @@ export class InAppNotifications extends Document {
   status: string;
   @Prop()
   type: string;
+  @Prop({ default: false })
+  isRead: boolean
 }
 
 export const inappNotificationsSchema =

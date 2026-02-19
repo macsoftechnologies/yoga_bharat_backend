@@ -60,6 +60,11 @@ export class InAppNotificationsService {
 
   async getUserNotifications(userId) {
     try {
+        const updateNotifications = await this.inappNotificationsModel.updateMany({userId: userId},{
+          $set: {
+            isRead: true
+          }
+        });
       const getnotifications = await this.inappNotificationsModel.find({
         userId: userId,
       });
@@ -67,6 +72,7 @@ export class InAppNotificationsService {
         return {
           statusCode: HttpStatus.OK,
           message: 'In App Notifications List of user',
+          data: getnotifications,
         };
       } else {
         return {

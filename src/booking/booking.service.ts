@@ -1087,10 +1087,14 @@ export class BookingService {
 
         delete result.accepted_bookings;
         result.upcoming_bookings = upcomingBookings;
+        const findInAppNotifications = await this.inAppNotificationModel.find({$and: [{
+          userId: userId,
+        }, {isRead: false}]}).countDocuments();
 
         return {
           statusCode: HttpStatus.OK,
           message: 'Trainer Details',
+          unread_Notifications: findInAppNotifications,
           data: result,
         };
       } else {
@@ -1167,9 +1171,13 @@ export class BookingService {
         delete result.accepted_bookings;
         result.upcoming_bookings = upcomingBookings;
 
+        const findInAppNotifications = await this.inAppNotificationModel.find({$and: [{
+          userId: userId,
+        }, {isRead: false}]}).countDocuments();
         return {
           statusCode: HttpStatus.OK,
           message: 'Client Details',
+          unread_Notifications: findInAppNotifications,
           data: result,
         };
       } else {
@@ -1225,8 +1233,8 @@ export class BookingService {
               );
               return {
                 statusCode: HttpStatus.OK,
-                message: "Sent Notifications to trainers"
-              }
+                message: 'Sent Notifications to trainers',
+              };
             }
           });
         } else {
