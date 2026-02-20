@@ -17,6 +17,7 @@ import { SessionsService } from 'src/sessions/sessions.service';
 import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
 import { InAppNotifications } from 'src/in-app-notifications/schema/inapp.schema';
 import { inAppNotificationsDto } from 'src/in-app-notifications/dto/inapp.dto';
+import { RoomSessions } from 'src/sessions/schema/sessions.schema';
 
 @Injectable()
 export class BookingService {
@@ -33,6 +34,8 @@ export class BookingService {
     private readonly inappNotificationService: InAppNotificationsService,
     @InjectModel(InAppNotifications.name)
     private readonly inAppNotificationModel: Model<InAppNotifications>,
+    @InjectModel(RoomSessions.name)
+    private readonly roomSessionModel: Model<RoomSessions>,
   ) {}
 
   private formatTimeToHHMMSS(time: string): string {
@@ -292,7 +295,21 @@ export class BookingService {
           },
         },
         { $unwind: { path: '$languageId', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'roomsessions',
+            localField: 'bookingId',
+            foreignField: 'bookingId',
+            as: 'sessionDetails',
+          },
+        },
       );
+
+      pipeline.push({
+        $addFields: {
+          sessionDetails: { $arrayElemAt: ['$sessionDetails', 0] },
+        },
+      });
 
       const nameMatch: any = {};
 
@@ -384,6 +401,14 @@ export class BookingService {
         },
       );
       if (accept) {
+        const findBookingSessions = await this.roomSessionModel.updateOne(
+          { bookingId: req.bookingId },
+          {
+            $set: {
+              trainerId: req.accepted_trainerId,
+            },
+          },
+        );
         const findBooking = await this.bookingModel.findOne({
           bookingId: req.bookingId,
         });
