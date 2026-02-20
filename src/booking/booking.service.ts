@@ -1087,9 +1087,16 @@ export class BookingService {
 
         delete result.accepted_bookings;
         result.upcoming_bookings = upcomingBookings;
-        const findInAppNotifications = await this.inAppNotificationModel.find({$and: [{
-          userId: userId,
-        }, {isRead: false}]}).countDocuments();
+        const findInAppNotifications = await this.inAppNotificationModel
+          .find({
+            $and: [
+              {
+                userId: userId,
+              },
+              { isRead: false },
+            ],
+          })
+          .countDocuments();
 
         return {
           statusCode: HttpStatus.OK,
@@ -1171,9 +1178,16 @@ export class BookingService {
         delete result.accepted_bookings;
         result.upcoming_bookings = upcomingBookings;
 
-        const findInAppNotifications = await this.inAppNotificationModel.find({$and: [{
-          userId: userId,
-        }, {isRead: false}]}).countDocuments();
+        const findInAppNotifications = await this.inAppNotificationModel
+          .find({
+            $and: [
+              {
+                userId: userId,
+              },
+              { isRead: false },
+            ],
+          })
+          .countDocuments();
         return {
           statusCode: HttpStatus.OK,
           message: 'Client Details',
@@ -1231,12 +1245,12 @@ export class BookingService {
                   },
                 },
               );
-              return {
-                statusCode: HttpStatus.OK,
-                message: 'Sent Notifications to trainers',
-              };
             }
           });
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Sent Notifications to trainers',
+          };
         } else {
           return {
             statusCode: HttpStatus.NOT_FOUND,
