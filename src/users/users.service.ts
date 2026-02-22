@@ -834,14 +834,16 @@ export class UsersService {
             },
             certificates: {
               $cond: {
-                if: { $gt: [{ $size: '$certificates' }, 0] },
+                if: { $gt: [{ $size: { $ifNull: ['$certificates', []] } }, 0] },
                 then: '$certificates',
                 else: '$$REMOVE',
               },
             },
             journey_images: {
               $cond: {
-                if: { $gt: [{ $size: '$journey_images' }, 0] },
+                if: {
+                  $gt: [{ $size: { $ifNull: ['$journey_images', []] } }, 0],
+                },
                 then: '$journey_images',
                 else: '$$REMOVE',
               },
@@ -849,7 +851,8 @@ export class UsersService {
           },
         },
       ]);
-      if (findUser) {
+
+      if (findUser && findUser.length > 0) {
         return {
           statusCode: HttpStatus.OK,
           message: 'User Details',
