@@ -96,4 +96,40 @@ export class NotificationsService {
       };
     }
   }
+
+  async getNotificationsList(page: number, limit: number) {
+    try {
+      const skip = (page - 1) * limit;
+      const getlist = await this.notificationModel.aggregate([
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userId',
+            foreignField: 'userId',
+            as: 'userId',
+          },
+        },
+      ]);
+
+      if (getlist.length > 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'List of Notifications',
+          data: getlist,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'No notifications found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
 }

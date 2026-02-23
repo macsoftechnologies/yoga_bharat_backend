@@ -17,6 +17,8 @@ import { certificateDto } from './dto/certificates.dto';
 import { Certificate } from './schema/cerificates.schema';
 import * as fs from 'fs';
 import * as path from 'path';
+import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
+import { InAppNotifications } from 'src/in-app-notifications/schema/inapp.schema';
 
 @Injectable()
 export class UsersService {
@@ -29,6 +31,9 @@ export class UsersService {
     private readonly authService: AuthService,
     @InjectModel(Certificate.name)
     private readonly certificateModel: Model<Certificate>,
+    private readonly inappNotificationService: InAppNotificationsService,
+    @InjectModel(InAppNotifications.name)
+    private readonly inAppNotificationModel: Model<InAppNotifications>,
   ) {}
 
   //  Starting of Health Preferences Apis
@@ -496,6 +501,26 @@ export class UsersService {
         const findUser = await this.userModel.findOne({ userId: req.userId });
         const jwtToken = await this.authService.createToken({ findUser });
         //   console.log(jwtToken);
+        const sendNotification =
+          await this.inappNotificationService.addInAppBookingNotification({
+            ...req,
+            userId: req.userId,
+            message: 'Yay! Your details added successfully as client.',
+            type: 'add_trainer',
+          });
+        if (sendNotification) {
+          await this.inAppNotificationModel.updateOne(
+            {
+              inapp_notification_id:
+                sendNotification.data?.inapp_notification_id,
+            },
+            {
+              $set: {
+                status: 'success',
+              },
+            },
+          );
+        }
         return {
           statusCode: HttpStatus.OK,
           message: 'User Login successfull',
@@ -548,6 +573,26 @@ export class UsersService {
         const findUser = await this.userModel.findOne({ userId: req.userId });
         const jwtToken = await this.authService.createToken({ findUser });
         //   console.log(jwtToken);
+        const sendNotification =
+          await this.inappNotificationService.addInAppBookingNotification({
+            ...req,
+            userId: req.userId,
+            message: 'Yay! Your details added successfully as trainer.',
+            type: 'add_trainer',
+          });
+        if (sendNotification) {
+          await this.inAppNotificationModel.updateOne(
+            {
+              inapp_notification_id:
+                sendNotification.data?.inapp_notification_id,
+            },
+            {
+              $set: {
+                status: 'success',
+              },
+            },
+          );
+        }
         return {
           statusCode: HttpStatus.OK,
           message: 'User Login successfull',
@@ -605,6 +650,26 @@ export class UsersService {
 
       if (update.modifiedCount > 0) {
         const user = await this.userModel.findOne({ userId: req.userId });
+        const sendNotification =
+          await this.inappNotificationService.addInAppBookingNotification({
+            ...req,
+            userId: req.userId,
+            message: 'Your EKYC Added.',
+            type: 'add_ekyc',
+          });
+        if (sendNotification) {
+          await this.inAppNotificationModel.updateOne(
+            {
+              inapp_notification_id:
+                sendNotification.data?.inapp_notification_id,
+            },
+            {
+              $set: {
+                status: 'success',
+              },
+            },
+          );
+        }
         return {
           statusCode: HttpStatus.OK,
           message: 'EKYC added successfully',
@@ -772,6 +837,26 @@ export class UsersService {
           },
         );
         if (approvetrainer) {
+          const sendNotification =
+            await this.inappNotificationService.addInAppBookingNotification({
+              ...req,
+              userId: req.userId,
+              message: 'Yay! Your ekyc has approved.',
+              type: 'add_trainer',
+            });
+          if (sendNotification) {
+            await this.inAppNotificationModel.updateOne(
+              {
+                inapp_notification_id:
+                  sendNotification.data?.inapp_notification_id,
+              },
+              {
+                $set: {
+                  status: 'success',
+                },
+              },
+            );
+          }
           return {
             statusCode: HttpStatus.OK,
             message: 'Trainer EKYC Approved Successfully',
@@ -902,6 +987,26 @@ export class UsersService {
           },
         );
         if (edit) {
+          const sendNotification =
+            await this.inappNotificationService.addInAppBookingNotification({
+              ...req,
+              userId: req.userId,
+              message: 'Your details updated successfully.',
+              type: 'update',
+            });
+          if (sendNotification) {
+            await this.inAppNotificationModel.updateOne(
+              {
+                inapp_notification_id:
+                  sendNotification.data?.inapp_notification_id,
+              },
+              {
+                $set: {
+                  status: 'success',
+                },
+              },
+            );
+          }
           return {
             statusCode: HttpStatus.OK,
             message: 'User Login successfull',
@@ -940,6 +1045,26 @@ export class UsersService {
           },
         );
         if (edit) {
+          const sendNotification =
+            await this.inappNotificationService.addInAppBookingNotification({
+              ...req,
+              userId: req.userId,
+              message: 'Your details updated successfully.',
+              type: 'update',
+            });
+          if (sendNotification) {
+            await this.inAppNotificationModel.updateOne(
+              {
+                inapp_notification_id:
+                  sendNotification.data?.inapp_notification_id,
+              },
+              {
+                $set: {
+                  status: 'success',
+                },
+              },
+            );
+          }
           return {
             statusCode: HttpStatus.OK,
             message: 'User Login successfull',

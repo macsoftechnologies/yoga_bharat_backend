@@ -15,4 +15,12 @@ export class DashboardStatsDto {
   fromDate: string;
   @ApiProperty()
   toDate: string;
+  @ApiProperty()
+  earnings: any[];
+  @ApiProperty()
+  bookings: any[];
+  @ApiProperty()
+  clients: any[];
+  @ApiProperty()
+  trainers: any[];
 }

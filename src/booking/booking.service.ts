@@ -927,6 +927,10 @@ export class BookingService {
       activeTrainers,
       fromDate,
       toDate,
+      earnings: filteredEarnings,
+      bookings: filteredBookings,
+      clients: clientUsers,
+      trainers: trainerUsers,
     };
   }
 

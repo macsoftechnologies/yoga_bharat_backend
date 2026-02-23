@@ -28,42 +28,108 @@ export class SMSService {
     }
   }
 
+  // async sendBulkSms(
+  //   mobileNumbers: string[],
+  //   message: string,
+  // ): Promise<boolean> {
+  //   try {
+  //     console.log('numbers.....', mobileNumbers);
+  //     const numbers = mobileNumbers.map((number) => {
+  //       return '91' + number;
+  //     });
+
+  //     const smsPayload = {
+  //       Numbers: numbers.join(','),
+  //       Text: message,
+  //       SenderId: process.env.SENDER_ID,
+  //     };
+
+  //     console.log(
+  //       'SMS Payload:',
+  //       JSON.stringify({ SMSes: smsPayload }, null, 2),
+  //     );
+
+  //     const response = await axios.post(
+  //       `https://restapi.smscountry.com/v0.1/Accounts/${process.env.SMS_AUTH_KEY}/BulkSMSes/`,
+  //       {
+  //         SMSes: [
+  //           // ✅ Array, not an object
+  //           {
+  //             Number: numbers.join(','), // or try "Numbers"
+  //             Text: message,
+  //             SenderId: process.env.SENDER_ID,
+  //           },
+  //         ],
+  //       },
+  //       {
+  //         headers: {
+  //           Authorization: `Basic ${Buffer.from(
+  //             `${process.env.SMS_AUTH_KEY}:${process.env.PASSWORD}`,
+  //           ).toString('base64')}`,
+  //           'Content-Type': 'application/json',
+  //         },
+  //       },
+  //     );
+
+  //     console.log('SMS Response:', response.data);
+  //     return !!response;
+  //   } catch (error) {
+  //     console.error('Bulk SMS error:', error?.response?.data || error.message);
+  //     return false;
+  //   }
+  // }
+
   async sendBulkSms(
     mobileNumbers: string[],
     message: string,
   ): Promise<boolean> {
     try {
-        console.log("numbers.....", mobileNumbers);
-        const numbers = mobileNumbers.map((number) => {
-            return "91" + number;
-        })
+      console.log('numbers.....', mobileNumbers);
 
-      const smsPayload = ({
-        Numbers: numbers.join(','),
-        Text: message,
-        SenderId: process.env.SENDER_ID,
-      })
+      const authHeader = `Basic ${Buffer.from(
+        `${process.env.SMS_AUTH_KEY}:${process.env.PASSWORD}`,
+      ).toString('base64')}`;
 
+      const results = await Promise.allSettled(
+        mobileNumbers.map(async (number) => {
+          const response = await axios.post(
+            `https://restapi.smscountry.com/v0.1/Accounts/${process.env.SMS_AUTH_KEY}/SMSes/`,
+            {
+              Text: message,
+              Number: `91${number}`,
+              SenderId: process.env.SENDER_ID,
+            },
+            {
+              headers: {
+                Authorization: authHeader,
+                'Content-Type': 'application/json',
+              },
+            },
+          );
+          return response.data;
+        }),
+      );
+
+      // Log success/failure per number
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          console.log(`✅ SMS sent to ${mobileNumbers[index]}:`, result.value);
+        } else {
+          console.error(
+            `❌ SMS failed for ${mobileNumbers[index]}:`,
+            result.reason,
+          );
+        }
+      });
+
+      const successCount = results.filter(
+        (r) => r.status === 'fulfilled',
+      ).length;
       console.log(
-        'SMS Payload:',
-        JSON.stringify({ SMSes: smsPayload }, null, 2),
+        `SMS Summary: ${successCount}/${mobileNumbers.length} sent successfully`,
       );
 
-      const response = await axios.post(
-        `https://restapi.smscountry.com/v0.1/Accounts/${process.env.SMS_AUTH_KEY}/BulkSMSes/`,
-        smsPayload,
-        {
-          headers: {
-            Authorization: `Basic ${Buffer.from(
-              `${process.env.SMS_AUTH_KEY}:${process.env.PASSWORD}`,
-            ).toString('base64')}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      console.log('SMS Response:', response.data);
-      return !!response;
+      return successCount > 0;
     } catch (error) {
       console.error('Bulk SMS error:', error?.response?.data || error.message);
       return false;

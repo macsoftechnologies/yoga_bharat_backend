@@ -14,6 +14,8 @@ import {
 import { AuthService } from 'src/auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { Certificate, certificateSchema } from './schema/cerificates.schema';
+import { InAppNotifications, inappNotificationsSchema } from 'src/in-app-notifications/schema/inapp.schema';
+import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
 
 @Module({
   imports: [
@@ -22,9 +24,10 @@ import { Certificate, certificateSchema } from './schema/cerificates.schema';
       { name: HealthPreference.name, schema: healthPreferenceSchema },
       { name: ProfessionalDetails.name, schema: professionalDetailsSchema },
       { name: Certificate.name, schema: certificateSchema },
+      { name: InAppNotifications.name, schema: inappNotificationsSchema },
     ]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, AuthService, JwtService],
+  providers: [UsersService, AuthService, JwtService, InAppNotificationsService],
 })
 export class UsersModule {}
