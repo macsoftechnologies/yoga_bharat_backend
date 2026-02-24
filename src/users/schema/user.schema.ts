@@ -43,6 +43,8 @@ export class User extends Document {
   account_branch: string;
   @Prop()
   branch_address: string;
+  @Prop({ default: "active" })
+  status: string;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);

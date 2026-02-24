@@ -32,6 +32,7 @@ import { Roles } from 'src/auth/guards/roles.decorator';
 import { Role } from 'src/auth/guards/roles.enum';
 import { userEditDto } from './dto/user-edit.dto';
 import { certificateDto } from './dto/certificates.dto';
+import { userDeleteDto } from './dto/delete.dto';
 
 @Controller('users')
 export class UsersController {
@@ -460,7 +461,7 @@ export class UsersController {
 
   @UseGuards(JwtGuard)
   @Post('/delete')
-  async removeUser(@Body() req: clientDto) {
+  async removeUser(@Body() req: userDeleteDto) {
     try {
       const removeuser = await this.usersService.deleteUser(req);
       return removeuser;

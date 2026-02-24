@@ -4,7 +4,11 @@ export class privacyDto {
   @ApiProperty()
   privacyId: string;
   @ApiProperty()
-  text: string;
+  privacy_policy: string;
   @ApiProperty()
   usertype: string;
+  @ApiProperty()
+  status: string
+  @ApiProperty()
+  message: string
 }

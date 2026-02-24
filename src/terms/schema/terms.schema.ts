@@ -6,9 +6,13 @@ export class Terms extends Document {
   @Prop({ default: uuid })
   termsId: string;
   @Prop()
-  text: string;
-  @Prop()
   usertype: string;
+  @Prop({ default: 'valid' })
+  status: string;
+  @Prop({ default: 'success' })
+  message: string;
+  @Prop()
+  terms_and_conditions: string;
 }
 
 export const termsSchema = SchemaFactory.createForClass(Terms);

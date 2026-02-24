@@ -71,7 +71,9 @@ export class PrivacyService {
   }
   async privacyById(req: privacyDto) {
     try {
-      const byid = await this.privacyModel.findOne({ privacyId: req.privacyId });
+      const byid = await this.privacyModel.findOne({
+        privacyId: req.privacyId,
+      });
       if (byid) {
         return {
           statusCode: HttpStatus.OK,
@@ -93,12 +95,17 @@ export class PrivacyService {
   }
   async updatePrivacy(req: privacyDto) {
     try {
-      const update = await this.privacyModel.updateOne({privacyId: req.privacyId}, {
-        $set: {
-          text: req.text,
-          usertype: req.usertype
-        }
-      });
+      const update = await this.privacyModel.updateOne(
+        { privacyId: req.privacyId },
+        {
+          $set: {
+            privacy_policy: req.privacy_policy,
+            usertype: req.usertype,
+            message: req.message,
+            status: req.status,
+          },
+        },
+      );
       if (update) {
         return {
           statusCode: HttpStatus.OK,
@@ -120,7 +127,9 @@ export class PrivacyService {
   }
   async deletePrivacy(req: privacyDto) {
     try {
-      const del = await this.privacyModel.deleteOne({privacyId: req.privacyId});
+      const del = await this.privacyModel.deleteOne({
+        privacyId: req.privacyId,
+      });
       if (del) {
         return {
           statusCode: HttpStatus.OK,

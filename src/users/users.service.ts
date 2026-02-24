@@ -19,6 +19,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
 import { InAppNotifications } from 'src/in-app-notifications/schema/inapp.schema';
+import { userDeleteDto } from './dto/delete.dto';
 
 @Injectable()
 export class UsersService {
@@ -1090,13 +1091,27 @@ export class UsersService {
     }
   }
 
-  async deleteUser(req: clientDto) {
+  async deleteUser(req: userDeleteDto) {
     try {
-      const deleteUser = await this.userModel.deleteOne({ userId: req.userId });
-      if (deleteUser) {
+      if (req.otp == '1234') {
+        const deleteUser = await this.userModel.updateOne(
+          { userId: req.userId },
+          {
+            $set: {
+              status: 'inactive',
+            },
+          },
+        );
+        if (deleteUser) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'User deleted successfully',
+          };
+        }
+      } else {
         return {
-          statusCode: HttpStatus.OK,
-          message: 'User deleted successfully',
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Invalid OTP.',
         };
       }
     } catch (error) {

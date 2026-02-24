@@ -6,9 +6,13 @@ export class Privacy extends Document {
   @Prop({ default: uuid })
   privacyId: string;
   @Prop()
-  text: string;
+  privacy_policy: string;
   @Prop()
   usertype: string;
+  @Prop({ default: 'valid' })
+  status: string;
+  @Prop({ default: 'success' })
+  message: string;
 }
 
 export const privacySchema = SchemaFactory.createForClass(Privacy);

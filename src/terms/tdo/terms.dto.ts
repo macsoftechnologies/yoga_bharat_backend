@@ -4,7 +4,11 @@ export class termsDto {
   @ApiProperty()
   termsId: string;
   @ApiProperty()
-  text: string;
-  @ApiProperty()
   usertype: string;
+  @ApiProperty()
+  status: string;
+  @ApiProperty()
+  message: string;
+  @ApiProperty()
+  terms_and_conditions: string;
 }

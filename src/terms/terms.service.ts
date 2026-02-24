@@ -93,12 +93,17 @@ export class TermsService {
   }
   async updateTerms(req: termsDto) {
     try {
-      const update = await this.termsModel.updateOne({termsId: req.termsId}, {
-        $set: {
-          text: req.text,
-          usertype: req.usertype
-        }
-      });;
+      const update = await this.termsModel.updateOne(
+        { termsId: req.termsId },
+        {
+          $set: {
+            status: req.status,
+            terms_and_conditions: req.terms_and_conditions,
+            message: req.message,
+            usertype: req.usertype,
+          },
+        },
+      );
       if (update) {
         return {
           statusCode: HttpStatus.OK,
@@ -120,7 +125,7 @@ export class TermsService {
   }
   async deleteTerms(req: termsDto) {
     try {
-      const del = await this.termsModel.deleteOne({termsId: req.termsId});
+      const del = await this.termsModel.deleteOne({ termsId: req.termsId });
       if (del) {
         return {
           statusCode: HttpStatus.OK,
