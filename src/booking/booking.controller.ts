@@ -20,6 +20,7 @@ import { MonthlyEarningsResponseDto } from './dto/monthlymyearning.dto';
 import { YogaBookingsResponseDto } from './dto/yogabookings.dto';
 import { DashboardStatsDto } from './dto/Dashboardstats.dto';
 import { userRoomDetialsDto } from './dto/userRoomDetails.dto';
+import { GetEarningsDto } from './dto/getearnings.dto';
 
 @Controller('booking')
 export class BookingController {
@@ -230,5 +231,10 @@ export class BookingController {
         message: error.message,
       }
     }
+  }
+
+  @Post('download')
+  async downloadEarnings(@Body() dto: GetEarningsDto) {
+    return this.bookingService.getEarningsForDownload(dto);
   }
 }

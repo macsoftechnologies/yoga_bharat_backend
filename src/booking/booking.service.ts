@@ -18,9 +18,11 @@ import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notif
 import { InAppNotifications } from 'src/in-app-notifications/schema/inapp.schema';
 import { inAppNotificationsDto } from 'src/in-app-notifications/dto/inapp.dto';
 import { RoomSessions } from 'src/sessions/schema/sessions.schema';
+import { GetEarningsDto } from './dto/getearnings.dto';
 
 @Injectable()
 export class BookingService {
+  private readonly IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
   constructor(
     @InjectModel(Booking.name) private readonly bookingModel: Model<Booking>,
     @InjectModel(User.name) private readonly userModel: Model<User>,
@@ -1298,5 +1300,237 @@ export class BookingService {
         message: error.message,
       };
     }
+  }
+  
+  private getDateRange(dto: GetEarningsDto): { start: Date; end: Date } {
+    const today = new Date();
+
+    const IST_OFFSET_MS = this.IST_OFFSET_MS;
+
+    const toISTStartOfDay = (dateStr: string): Date => {
+      return new Date(`${dateStr}T00:00:00.000+05:30`);
+    };
+
+    const toISTEndOfDay = (dateStr: string): Date => {
+      return new Date(`${dateStr}T23:59:59.999+05:30`);
+    };
+
+    const fmt = (d: Date): string => {
+      const istDate = new Date(d.getTime() + IST_OFFSET_MS);
+      return istDate.toISOString().split('T')[0];
+    };
+
+    const subtractDays = (days: number): Date => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - days);
+      const istDateStr = fmt(d);
+      return toISTStartOfDay(istDateStr);
+    };
+
+    const todayISTStr = fmt(today);
+
+    const getFYRange = (fyString: string): { start: Date; end: Date } => {
+      if (fyString === 'current_fy') {
+        const month = today.getMonth();
+        const year = today.getFullYear();
+        const fyStartYear = month >= 3 ? year : year - 1;
+        return {
+          start: toISTStartOfDay(`${fyStartYear}-04-01`),
+          end: toISTEndOfDay(`${fyStartYear + 1}-03-31`),
+        };
+      }
+      const [startYear, endYear] = fyString.split('-').map(Number);
+      return {
+        start: toISTStartOfDay(`${startYear}-04-01`),
+        end: toISTEndOfDay(`${endYear}-03-31`),
+      };
+    };
+
+    const { period, startDate, endDate } = dto;
+
+    switch (period) {
+      case '30':
+        return { start: subtractDays(30), end: toISTEndOfDay(todayISTStr) };
+      case '90':
+        return { start: subtractDays(90), end: toISTEndOfDay(todayISTStr) };
+      case '180':
+        return { start: subtractDays(180), end: toISTEndOfDay(todayISTStr) };
+      case '365':
+        return { start: subtractDays(365), end: toISTEndOfDay(todayISTStr) };
+
+      case 'current_fy':
+      case '2024-2025':
+      case '2023-2024':
+      case '2022-2023':
+      case '2021-2022':
+        return getFYRange(period);
+
+      case 'custom':
+        if (!startDate || !endDate) {
+          throw new BadRequestException(
+            'startDate and endDate are required for custom range',
+          );
+        }
+        return {
+          start: toISTStartOfDay(startDate),
+          end: toISTEndOfDay(endDate),
+        };
+
+      default:
+        throw new BadRequestException(
+          'Invalid period. Use 30, 90, 180, 365, custom, current_fy, or a financial year like 2024-2025',
+        );
+    }
+  }
+
+  async getEarningsForDownload(dto: GetEarningsDto) {
+    const { trainerId } = dto;
+    const { start, end } = this.getDateRange(dto);
+
+    // Step 1: Fetch only earningId and date for this trainer — lightweight query
+    const allEarnings = await this.earningModel
+      .find({ trainerId })
+      .select('earningId date')
+      .lean();
+
+    // Step 2: Filter by date range in Node.js
+    // Node.js V8 correctly parses "Fri Feb 13 2026 05:30:00 GMT+0530 (India Standard Time)"
+    // Both sides are now in UTC so comparison is accurate
+    const validEarningIds = allEarnings
+      .filter((e) => {
+        const d = new Date(e.date);
+        return d >= start && d <= end;
+      })
+      .map((e) => e.earningId);
+
+    // Step 3: Early return if no records found
+    if (validEarningIds.length === 0) {
+      return {
+        success: true,
+        meta: {
+          trainerId,
+          period: dto.period,
+          startDate: start.toISOString().split('T')[0],
+          endDate: end.toISOString().split('T')[0],
+          totalEarned: 0,
+          totalSessions: 0,
+        },
+        dailyBreakdown: {},
+        records: [],
+      };
+    }
+
+    // Step 4: Full aggregation with lookups only for matched records
+    const earnings = await this.earningModel.aggregate([
+      {
+        $match: {
+          trainerId,
+          earningId: { $in: validEarningIds },
+        },
+      },
+
+      // Populate Booking
+      {
+        $lookup: {
+          from: 'bookings',
+          localField: 'bookingId',
+          foreignField: 'bookingId',
+          as: 'bookingId',
+        },
+      },
+      { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+
+      // Populate Trainer
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'trainerId',
+          foreignField: 'userId',
+          as: 'trainerId',
+        },
+      },
+      { $unwind: { path: '$trainerId', preserveNullAndEmptyArrays: true } },
+
+      // Populate Client
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'clientId',
+          foreignField: 'userId',
+          as: 'clientId',
+        },
+      },
+      { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
+
+      // Populate Yoga
+      {
+        $lookup: {
+          from: 'yogadetails',
+          localField: 'yogaId',
+          foreignField: 'yogaId',
+          as: 'yogaId',
+        },
+      },
+      { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+
+      {
+        $project: {
+          _id: 0,
+          earningId: 1,
+          date: 1,
+          earned_amount: 1,
+          'bookingId.bookingId': 1,
+          'bookingId.status': 1,
+          'bookingId.scheduledDate': 1,
+          'clientId.userId': 1,
+          'clientId.name': 1,
+          'clientId.email': 1,
+          'yogaId.yogaId': 1,
+          'yogaId.yoga_name': 1,
+          'yogaId.duration': 1,
+        },
+      },
+
+      { $sort: { date: -1 } },
+    ]);
+
+    // Step 5: Compute summary stats
+    const totalEarned = earnings.reduce(
+      (sum, e) => sum + (e.earned_amount || 0),
+      0,
+    );
+    const totalSessions = earnings.length;
+
+    // Step 6: Daily breakdown — normalize IST date string to YYYY-MM-DD
+    const dailyBreakdown: {
+      [key: string]: { totalEarned: number; sessions: number };
+    } = {};
+
+    for (const e of earnings) {
+      // Convert "Fri Feb 13 2026 05:30:00 GMT+0530..." to "2026-02-13" in IST
+      const parsedDate = new Date(e.date);
+      const istDate = new Date(parsedDate.getTime() + this.IST_OFFSET_MS);
+      const key = istDate.toISOString().split('T')[0];
+
+      if (!dailyBreakdown[key]) {
+        dailyBreakdown[key] = { totalEarned: 0, sessions: 0 };
+      }
+      dailyBreakdown[key].totalEarned += e.earned_amount || 0;
+      dailyBreakdown[key].sessions += 1;
+    }
+
+    return {
+      success: true,
+      meta: {
+        trainerId,
+        period: dto.period,
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+        totalEarned,
+        totalSessions,
+      },
+      dailyBreakdown,
+      records: earnings,
+    };
   }
 }
