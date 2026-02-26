@@ -144,4 +144,41 @@ export class TermsService {
       };
     }
   }
+
+  async termsByClient() {
+    try {
+      const byid = await this.termsModel.findOne({ usertype: 'client' });
+      if (byid) {
+        return byid;
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Terms detail not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+  async termsByTrainer() {
+    try {
+      const byid = await this.termsModel.findOne({ usertype: 'trainer' });
+      if (byid) {
+        return byid;
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Terms detail not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
 }

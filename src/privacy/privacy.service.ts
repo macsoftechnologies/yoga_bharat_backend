@@ -148,4 +148,42 @@ export class PrivacyService {
       };
     }
   }
+
+
+  async privacyByClient() {
+    try {
+      const byid = await this.privacyModel.findOne({ usertype: 'client' });
+      if (byid) {
+        return byid;
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Privacy Policy detail not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+  async privacyByTrainer() {
+    try {
+      const byid = await this.privacyModel.findOne({ usertype: 'trainer' });
+      if (byid) {
+        return byid;
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Privacy Policy detail not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
 }

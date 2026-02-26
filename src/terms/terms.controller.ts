@@ -88,4 +88,29 @@ export class TermsController {
       };
     }
   }
+
+  @Get('/learner_terms')
+  async termsBylearner() {
+    try {
+      const byid = await this.termsService.termsByClient();
+      return byid;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+  @Get('/trainer_terms')
+  async termsBytrainer() {
+    try {
+      const byid = await this.termsService.termsByTrainer();
+      return byid;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
 }

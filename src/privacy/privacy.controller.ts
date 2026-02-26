@@ -90,4 +90,29 @@ export class PrivacyController {
       };
     }
   }
+
+  @Get('/learner_privacy_policy')
+  async privacyPolicyBylearner() {
+    try {
+      const byid = await this.privacyService.privacyByClient();
+      return byid;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+  @Get('/trainer_privacy_policy')
+  async privacyPolicyBytrainer() {
+    try {
+      const byid = await this.privacyService.privacyByTrainer();
+      return byid;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
 }
