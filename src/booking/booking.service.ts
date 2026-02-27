@@ -19,6 +19,8 @@ import { InAppNotifications } from 'src/in-app-notifications/schema/inapp.schema
 import { inAppNotificationsDto } from 'src/in-app-notifications/dto/inapp.dto';
 import { RoomSessions } from 'src/sessions/schema/sessions.schema';
 import { GetEarningsDto } from './dto/getearnings.dto';
+import { orderAlertDto } from './dto/order_alert.dto';
+import { OrderAlert } from './schema/order_alert.schema';
 
 @Injectable()
 export class BookingService {
@@ -38,6 +40,8 @@ export class BookingService {
     private readonly inAppNotificationModel: Model<InAppNotifications>,
     @InjectModel(RoomSessions.name)
     private readonly roomSessionModel: Model<RoomSessions>,
+    @InjectModel(OrderAlert.name)
+    private readonly orderAlertModel: Model<OrderAlert>,
   ) {}
 
   private formatTimeToHHMMSS(time: string): string {
@@ -422,6 +426,20 @@ export class BookingService {
             message: 'Yay! Your booking has been accepted by a trainer.',
             type: 'accept_booking',
           });
+        await this.orderAlertModel.updateOne(
+          {
+            $and: [
+              { bookingId: req.bookingId },
+              { trainerId: req.accepted_trainerId },
+            ],
+          },
+          {
+            $set: { status: 'accepted' },
+          },
+        );
+        await this.orderAlertModel.deleteMany({
+          $and: [{ bookingId: req.bookingId }, { status: 'pending' }],
+        });
         if (acceptNotification) {
           await this.inAppNotificationModel.updateOne(
             {
@@ -1263,6 +1281,7 @@ export class BookingService {
                 message:
                   'There is a new yoga session booking. Please checkout.',
                 type: 'booking',
+                bookingId: req.bookingId,
               });
             if (addNotification) {
               await this.inAppNotificationModel.updateOne(
@@ -1301,7 +1320,7 @@ export class BookingService {
       };
     }
   }
-  
+
   private getDateRange(dto: GetEarningsDto): { start: Date; end: Date } {
     const today = new Date();
 
@@ -1532,5 +1551,52 @@ export class BookingService {
       dailyBreakdown,
       records: earnings,
     };
+  }
+
+  async addOrderAlerts(req: orderAlertDto) {
+    try {
+      const findClient = await this.userModel.findOne({
+        userId: req.clientId,
+      });
+      const findbooking = await this.bookingModel.findOne({
+        bookingId: req.bookingId,
+      });
+      console.log(".....checking", findClient, findbooking)
+      if (findbooking && findClient) {
+        const findTrainers = await this.userModel.find({
+          professional_details: findbooking?.yogaId,
+        });
+        if (findTrainers.length > 0) {
+          findTrainers.map(async (trainer) => {
+            await this.orderAlertModel.create({
+              ...req,
+              bookingId: findbooking?.bookingId,
+              clientId: req.clientId,
+              trainerId: trainer.userId,
+              yogaId: findbooking?.yogaId,
+            });
+          });
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Order Alerts added to trainers.',
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.NOT_FOUND,
+            message: 'NoTrainers found for this session',
+          };
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Please provide valid details',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
   }
 }

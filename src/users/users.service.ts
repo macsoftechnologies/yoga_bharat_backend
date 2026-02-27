@@ -1,4 +1,10 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schema/user.schema';
 import { Model } from 'mongoose';
@@ -20,6 +26,8 @@ import * as path from 'path';
 import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
 import { InAppNotifications } from 'src/in-app-notifications/schema/inapp.schema';
 import { userDeleteDto } from './dto/delete.dto';
+import { trainerAvailabilityDto } from './dto/trainer_availability.dto';
+import { TrainerEvents } from './schema/trainer_availability.schema';
 
 @Injectable()
 export class UsersService {
@@ -35,6 +43,8 @@ export class UsersService {
     private readonly inappNotificationService: InAppNotificationsService,
     @InjectModel(InAppNotifications.name)
     private readonly inAppNotificationModel: Model<InAppNotifications>,
+    @InjectModel(TrainerEvents.name)
+    private readonly trainerEventsModel: Model<TrainerEvents>,
   ) {}
 
   //  Starting of Health Preferences Apis
@@ -1234,6 +1244,71 @@ export class UsersService {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
+      };
+    }
+  }
+
+  async addTrainerAvailability(req: trainerAvailabilityDto) {
+    try {
+      const start = new Date(req.startDateTime);
+      const end = new Date(req.endDateTime);
+
+      if (end <= start) {
+        throw new BadRequestException(
+          'endDateTime must be after startDateTime',
+        );
+      }
+
+      // Check for overlaps
+      const overlap = await this.trainerEventsModel.findOne({
+        userId: req.userId,
+        startDateTime: { $lt: end },
+        endDateTime: { $gt: start },
+      });
+
+      if (overlap) {
+        throw new ConflictException(
+          `Overlaps with existing event: "${overlap.title}" on ${overlap.startDateTime.toISOString()}`,
+        );
+      }
+
+      const created = new this.trainerEventsModel({
+        ...req,
+        userId: req.userId,
+        startDateTime: start,
+        endDateTime: end,
+      });
+
+      return created.save();
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  async getTrainerEvents(req: trainerAvailabilityDto) {
+    try {
+      const getlist = await this.trainerEventsModel.find({
+        userId: req.userId,
+      });
+      if (getlist.length > 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'List of user events',
+          data: getlist,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'User Events not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
       };
     }
   }

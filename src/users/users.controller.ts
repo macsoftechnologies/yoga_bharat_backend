@@ -33,6 +33,7 @@ import { Role } from 'src/auth/guards/roles.enum';
 import { userEditDto } from './dto/user-edit.dto';
 import { certificateDto } from './dto/certificates.dto';
 import { userDeleteDto } from './dto/delete.dto';
+import { trainerAvailabilityDto } from './dto/trainer_availability.dto';
 
 @Controller('users')
 export class UsersController {
@@ -540,6 +541,32 @@ export class UsersController {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
       };
+    }
+  }
+
+  @Post('/addtrainerevent')
+  async addEvent(@Body() req: trainerAvailabilityDto) {
+    try{
+      const add = await this.usersService.addTrainerAvailability(req);
+      return add
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
+  @Post('/user_events')
+  async getUserEvenst(@Body() req: trainerAvailabilityDto) {
+    try{
+      const getlist = await this.usersService.getTrainerEvents(req);
+      return getlist
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
     }
   }
 }

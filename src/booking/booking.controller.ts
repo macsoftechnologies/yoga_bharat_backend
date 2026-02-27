@@ -21,6 +21,7 @@ import { YogaBookingsResponseDto } from './dto/yogabookings.dto';
 import { DashboardStatsDto } from './dto/Dashboardstats.dto';
 import { userRoomDetialsDto } from './dto/userRoomDetails.dto';
 import { GetEarningsDto } from './dto/getearnings.dto';
+import { orderAlertDto } from './dto/order_alert.dto';
 
 @Controller('booking')
 export class BookingController {
@@ -236,5 +237,18 @@ export class BookingController {
   @Post('download')
   async downloadEarnings(@Body() dto: GetEarningsDto) {
     return this.bookingService.getEarningsForDownload(dto);
+  }
+
+  @Post('/orderalert')
+  async createOrderAlerts(@Body() req: orderAlertDto) {
+    try{
+      const add = await this.bookingService.addOrderAlerts(req);
+      return add
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
   }
 }

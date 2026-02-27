@@ -23,6 +23,7 @@ import { TicketsModule } from './tickets/tickets.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { InAppNotificationsModule } from './in-app-notifications/in-app-notifications.module';
+import { PassedOrdersModule } from './passed_orders/passed_orders.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { InAppNotificationsModule } from './in-app-notifications/in-app-notifica
     NotificationsModule,
     SessionsModule,
     InAppNotificationsModule,
+    PassedOrdersModule,
   ],
   controllers: [AppController],
   providers: [

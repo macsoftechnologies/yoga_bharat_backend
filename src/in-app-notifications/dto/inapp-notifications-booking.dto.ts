@@ -17,4 +17,6 @@ export class inAppBookingNotificationsDto{
     status: string
     @ApiProperty()
     type: string
+    @ApiProperty()
+    bookingId: string
 }

@@ -22,6 +22,8 @@ export class InAppNotifications extends Document {
   type: string;
   @Prop({ default: false })
   isRead: boolean
+  @Prop()
+  bookingId: string
 }
 
 export const inappNotificationsSchema =

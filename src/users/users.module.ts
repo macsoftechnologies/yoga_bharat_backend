@@ -16,6 +16,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Certificate, certificateSchema } from './schema/cerificates.schema';
 import { InAppNotifications, inappNotificationsSchema } from 'src/in-app-notifications/schema/inapp.schema';
 import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
+import { TrainerEvents, trainerEventSchema } from './schema/trainer_availability.schema';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notif
       { name: ProfessionalDetails.name, schema: professionalDetailsSchema },
       { name: Certificate.name, schema: certificateSchema },
       { name: InAppNotifications.name, schema: inappNotificationsSchema },
+      { name: TrainerEvents.name, schema: trainerEventSchema }
     ]),
   ],
   controllers: [UsersController],
