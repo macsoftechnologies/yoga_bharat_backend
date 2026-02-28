@@ -82,14 +82,14 @@ export class BookingService {
       });
       if (addbooking) {
         bookingTrainers.map(async (trainer) => {
-            await this.orderAlertModel.create({
-              ...req,
-              bookingId: addbooking?.bookingId,
-              clientId: addbooking.clientId,
-              trainerId: trainer,
-              yogaId: addbooking.yogaId,
-            });
+          await this.orderAlertModel.create({
+            ...req,
+            bookingId: addbooking?.bookingId,
+            clientId: addbooking.clientId,
+            trainerId: trainer,
+            yogaId: addbooking.yogaId,
           });
+        });
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking created successfully.',
@@ -1564,29 +1564,38 @@ export class BookingService {
 
   async addOrderAlerts(req: orderAlertDto) {
     try {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
       const getOrderAlert = await this.orderAlertModel.aggregate([
-        {$match: {trainerId: req.trainerId}},
         {
-          $sort: {createdAt: -1}
+          $match: {
+            trainerId: req.trainerId,
+            createdAt: { $gte: tenMinutesAgo },
+          },
         },
         {
+          $sort: { createdAt: -1 },
+        },
+        { $limit: 1 },
+        {
           $lookup: {
-            from: "bookings",
-            localField: "bookingId",
-            foreignField: "bookingId",
-            as: "bookingId"
-          }
+            from: 'bookings',
+            localField: 'bookingId',
+            foreignField: 'bookingId',
+            as: 'bookingId',
+          },
         },
         { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
         {
           $lookup: {
-            from: "roomsessions",
-            localField: "bookingId.bookingId",
-            foreignField: "bookingId",
-            as: "room_details"
-          }
+            from: 'roomsessions',
+            localField: 'bookingId.bookingId',
+            foreignField: 'bookingId',
+            as: 'room_details',
+          },
         },
-        { $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true } },
+        {
+          $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true },
+        },
         {
           $lookup: {
             from: 'yogadetails',
@@ -1619,15 +1628,15 @@ export class BookingService {
             status: 1,
             alertId: 1,
             createdAt: 1,
-            updatedAt: 1
+            updatedAt: 1,
           },
         },
       ]);
       return {
         status: HttpStatus.OK,
-        message: "Order Alert Details",
-        data: getOrderAlert[0] || {}
-      }
+        message: 'Order Alert Details',
+        data: getOrderAlert[0] || {},
+      };
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
