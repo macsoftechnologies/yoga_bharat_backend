@@ -462,9 +462,11 @@ export class BookingService {
             },
           );
         }
+        const findSession = await this.roomSessionModel.findOne({bookingId: req.bookingId});
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking accepted successfully',
+          data: findSession
         };
       } else {
         return {
