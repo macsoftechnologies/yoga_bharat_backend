@@ -520,6 +520,16 @@ export class BookingService {
               bookingId: req.bookingId,
               yogaId: findBooking.yogaId,
             });
+            await this.bookingModel.updateOne({bookingId: req.bookingId}, {
+              $set: {
+                status: 'completed'
+              }
+            });
+            await this.orderAlertModel.updateOne({bookingId: req.bookingId}, {
+              $set: {
+                status: "completed"
+              }
+            });
             return {
               statusCode: HttpStatus.OK,
               message: 'Earning added successfully',
