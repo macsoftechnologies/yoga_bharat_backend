@@ -81,6 +81,15 @@ export class BookingService {
         trainerIds: bookingTrainers,
       });
       if (addbooking) {
+        bookingTrainers.map(async (trainer) => {
+            await this.orderAlertModel.create({
+              ...req,
+              bookingId: addbooking?.bookingId,
+              clientId: addbooking.clientId,
+              trainerId: trainer,
+              yogaId: addbooking.yogaId,
+            });
+          });
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking created successfully.',
@@ -1555,42 +1564,69 @@ export class BookingService {
 
   async addOrderAlerts(req: orderAlertDto) {
     try {
-      const findClient = await this.userModel.findOne({
-        userId: req.clientId,
-      });
-      const findbooking = await this.bookingModel.findOne({
-        bookingId: req.bookingId,
-      });
-      console.log(".....checking", findClient, findbooking)
-      if (findbooking && findClient) {
-        const findTrainers = await this.userModel.find({
-          professional_details: findbooking?.yogaId,
-        });
-        if (findTrainers.length > 0) {
-          findTrainers.map(async (trainer) => {
-            await this.orderAlertModel.create({
-              ...req,
-              bookingId: findbooking?.bookingId,
-              clientId: req.clientId,
-              trainerId: trainer.userId,
-              yogaId: findbooking?.yogaId,
-            });
-          });
-          return {
-            statusCode: HttpStatus.OK,
-            message: 'Order Alerts added to trainers.',
-          };
-        } else {
-          return {
-            statusCode: HttpStatus.NOT_FOUND,
-            message: 'NoTrainers found for this session',
-          };
-        }
-      } else {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'Please provide valid details',
-        };
+      const getOrderAlert = await this.orderAlertModel.aggregate([
+        {$match: {trainerId: req.trainerId}},
+        {
+          $sort: {createdAt: -1}
+        },
+        {
+          $lookup: {
+            from: "bookings",
+            localField: "bookingId",
+            foreignField: "bookingId",
+            as: "bookingId"
+          }
+        },
+        { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "roomsessions",
+            localField: "bookingId.bookingId",
+            foreignField: "bookingId",
+            as: "room_details"
+          }
+        },
+        { $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'bookingId.yogaId',
+            foreignField: 'yogaId',
+            as: 'yogaId',
+          },
+        },
+        {
+          $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'bookingId.clientId',
+            foreignField: 'userId',
+            as: 'clientId',
+          },
+        },
+        {
+          $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true },
+        },
+
+        {
+          $project: {
+            bookingId: '$bookingId',
+            yoga_details: '$yogaId',
+            client_details: '$clientId',
+            room_details: '$room_details',
+            status: 1,
+            alertId: 1,
+            createdAt: 1,
+            updatedAt: 1
+          },
+        },
+      ]);
+      return {
+        status: HttpStatus.OK,
+        message: "Order Alert Details",
+        data: getOrderAlert[0]
       }
     } catch (error) {
       return {

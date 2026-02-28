@@ -67,7 +67,7 @@ export class PassedOrdersService {
           },
         },
         {
-          $unwind: { path: '$yoga_details', preserveNullAndEmptyArrays: true },
+          $unwind: { path: '$client_details', preserveNullAndEmptyArrays: true },
         },
 
         {
