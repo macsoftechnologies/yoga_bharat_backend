@@ -1626,7 +1626,7 @@ export class BookingService {
       return {
         status: HttpStatus.OK,
         message: "Order Alert Details",
-        data: getOrderAlert[0]
+        data: getOrderAlert[0] || {}
       }
     } catch (error) {
       return {
