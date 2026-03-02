@@ -462,11 +462,13 @@ export class BookingService {
             },
           );
         }
-        const findSession = await this.roomSessionModel.findOne({bookingId: req.bookingId});
+        const findSession = await this.roomSessionModel.findOne({
+          bookingId: req.bookingId,
+        });
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking accepted successfully',
-          data: findSession
+          data: findSession,
         };
       } else {
         return {
@@ -522,16 +524,22 @@ export class BookingService {
               bookingId: req.bookingId,
               yogaId: findBooking.yogaId,
             });
-            await this.bookingModel.updateOne({bookingId: req.bookingId}, {
-              $set: {
-                status: 'completed'
-              }
-            });
-            await this.orderAlertModel.updateOne({bookingId: req.bookingId}, {
-              $set: {
-                status: "completed"
-              }
-            });
+            await this.bookingModel.updateOne(
+              { bookingId: req.bookingId },
+              {
+                $set: {
+                  status: 'completed',
+                },
+              },
+            );
+            await this.orderAlertModel.updateOne(
+              { bookingId: req.bookingId },
+              {
+                $set: {
+                  status: 'completed',
+                },
+              },
+            );
             return {
               statusCode: HttpStatus.OK,
               message: 'Earning added successfully',
@@ -1649,6 +1657,43 @@ export class BookingService {
         message: 'Order Alert Details',
         data: getOrderAlert[0] || {},
       };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  async cancelOrder(req: bookingDto) {
+    try {
+      const cancel_booking = await this.bookingModel.updateOne(
+        { bookingId: req.bookingId },
+        {
+          $set: {
+            status: 'cancelled',
+          },
+        },
+      );
+      const cancel_alert = await this.orderAlertModel.updateMany(
+        { bookingId: req.bookingId },
+        {
+          $set: {
+            status: 'cancelled',
+          },
+        },
+      );
+      if (cancel_booking.modifiedCount > 0 && cancel_alert.modifiedCount > 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Order Cancelled successfully',
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: 'failed to cancel order',
+        };
+      }
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

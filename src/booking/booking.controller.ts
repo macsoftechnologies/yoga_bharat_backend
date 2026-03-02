@@ -197,40 +197,45 @@ export class BookingController {
 
   @Post('/trainerdashboard')
   async trainerDashboard(@Body() body: { userId: string }) {
-    try{
-      const getdetails = await this.bookingService.trainerDashboardApi(body.userId);
-      return getdetails
-    } catch(error) {
+    try {
+      const getdetails = await this.bookingService.trainerDashboardApi(
+        body.userId,
+      );
+      return getdetails;
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
-      }
+      };
     }
   }
 
   @Post('/clientdashboard')
   async clientDashboard(@Body() body: { userId: string }) {
-    try{
-      const getdetails = await this.bookingService.clientDashboardApi(body.userId);
-      return getdetails
-    } catch(error) {
+    try {
+      const getdetails = await this.bookingService.clientDashboardApi(
+        body.userId,
+      );
+      return getdetails;
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
-      }
+      };
     }
   }
 
   @Post('/sessiondetails')
   async sessionDetails(@Body() req: userRoomDetialsDto) {
-    try{
-      const details = await this.bookingService.sendInAppNotificationWithRoomDetails(req);
-      return details
-    } catch(error) {
+    try {
+      const details =
+        await this.bookingService.sendInAppNotificationWithRoomDetails(req);
+      return details;
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
-      }
+      };
     }
   }
 
@@ -241,14 +246,27 @@ export class BookingController {
 
   @Post('/orderalert')
   async createOrderAlerts(@Body() req: orderAlertDto) {
-    try{
+    try {
       const add = await this.bookingService.addOrderAlerts(req);
-      return add
-    } catch(error) {
+      return add;
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
-      }
+      };
+    }
+  }
+
+  @Post('/cancel_booking')
+  async cancelBooking(@Body() req: bookingDto) {
+    try {
+      const update_status = await this.bookingService.cancelOrder(req);
+      return update_status;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
     }
   }
 }
