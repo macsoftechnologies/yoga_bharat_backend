@@ -269,6 +269,19 @@ export class UsersController {
   // Ending of Professional Details APIs
 
   // register user through otp
+  @Post('/createuser')
+  async createUser(@Body() req: userDto) {
+    try {
+      const registerUser = await this.usersService.registerUser(req);
+      return registerUser;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
   @Post('/registeruser')
   async registerUser(@Body() req: userDto) {
     try {

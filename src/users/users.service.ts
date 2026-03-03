@@ -423,6 +423,28 @@ export class UsersService {
   //   Ending of Profession Details Apis
 
   // register user through otp
+  async registerUser(req: userDto) {
+    try {
+      const add = await this.userModel.create(req);
+      if (add) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: `User registered through mobile number ${req.mobileNumber}`,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: "Failed to register User",
+        }
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
   async addUser(req: userDto) {
     try {
       const findUser = await this.userModel.findOne({
@@ -442,12 +464,9 @@ export class UsersService {
             'Already Registered but verify otp and provide Details of your profile.',
         };
       } else {
-        const add = await this.userModel.create(req);
-        if (add) {
-          return {
-            statusCode: HttpStatus.OK,
-            message: `User registered through mobile number ${req.mobileNumber}`,
-          };
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "User not found",
         }
       }
     } catch (error) {
@@ -463,7 +482,7 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      console.log("....user details", findUser);
+      console.log('....user details', findUser);
       if (findUser) {
         const generatedOtp = Math.floor(1000 + Math.random() * 900000);
 
@@ -498,8 +517,8 @@ export class UsersService {
       } else {
         return {
           statusCode: HttpStatus.NOT_FOUND,
-          message: "User not found"
-        }
+          message: 'User not found',
+        };
       }
     } catch (error) {
       return {
