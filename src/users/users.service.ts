@@ -28,6 +28,7 @@ import { InAppNotifications } from 'src/in-app-notifications/schema/inapp.schema
 import { userDeleteDto } from './dto/delete.dto';
 import { trainerAvailabilityDto } from './dto/trainer_availability.dto';
 import { TrainerEvents } from './schema/trainer_availability.schema';
+import { SMSService } from 'src/auth/sms.service';
 
 @Injectable()
 export class UsersService {
@@ -45,6 +46,7 @@ export class UsersService {
     private readonly inAppNotificationModel: Model<InAppNotifications>,
     @InjectModel(TrainerEvents.name)
     private readonly trainerEventsModel: Model<TrainerEvents>,
+    private readonly smsService: SMSService,
   ) {}
 
   //  Starting of Health Preferences Apis
@@ -427,11 +429,13 @@ export class UsersService {
         mobileNumber: req.mobileNumber,
       });
       if (findUser && (findUser.role == 'trainer' || 'client')) {
+        await this.sendOtp(req);
         return {
           statusCode: HttpStatus.NOT_ACCEPTABLE,
           message: 'User already registered please login.',
         };
       } else if (findUser && !findUser.role) {
+        await this.sendOtp(req);
         return {
           statusCode: HttpStatus.CONFLICT,
           message:
@@ -454,13 +458,64 @@ export class UsersService {
     }
   }
 
+  async sendOtp(req: userDto) {
+    try {
+      const findUser = await this.userModel.findOne({
+        mobileNumber: req.mobileNumber,
+      });
+      console.log("....user details", findUser);
+      if (findUser) {
+        const generatedOtp = Math.floor(1000 + Math.random() * 900000);
+
+        const updateOTP = await this.userModel.updateOne(
+          { userId: findUser.userId },
+          { $set: { otp: generatedOtp } },
+        );
+
+        if (updateOTP.modifiedCount <= 0) {
+          return {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: 'Unable to send OTP',
+          };
+        }
+
+        const otpSent = await this.smsService.sendOtp(
+          findUser.mobileNumber,
+          generatedOtp,
+        );
+
+        if (otpSent) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Sent OTP Successfully',
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.EXPECTATION_FAILED,
+            message: 'Failed to send OTP',
+          };
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "User not found"
+        }
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
   //   verify otp
   async verifyOTP(req: userDto) {
     try {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      if (findUser && !findUser.role && req.otp == '1234') {
+      if (findUser && !findUser.role && req.otp == findUser?.otp) {
         return {
           statusCode: HttpStatus.OK,
           message: 'User Verified Successfully',
@@ -469,7 +524,7 @@ export class UsersService {
       } else if (
         findUser &&
         (findUser.role == 'trainer' || 'client') &&
-        req.otp == '1234'
+        req.otp == findUser?.otp
       ) {
         const jwtToken = await this.authService.createToken({ findUser });
         //   console.log(jwtToken);
@@ -1020,7 +1075,7 @@ export class UsersService {
           }
           return {
             statusCode: HttpStatus.OK,
-            message: 'User Login successfull',
+            message: 'User Details Updated successfull',
             data: edit,
           };
         } else {
@@ -1078,7 +1133,7 @@ export class UsersService {
           }
           return {
             statusCode: HttpStatus.OK,
-            message: 'User Login successfull',
+            message: 'User Details Updated successfull',
             data: edit,
           };
         } else {

@@ -17,6 +17,7 @@ import { Certificate, certificateSchema } from './schema/cerificates.schema';
 import { InAppNotifications, inappNotificationsSchema } from 'src/in-app-notifications/schema/inapp.schema';
 import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
 import { TrainerEvents, trainerEventSchema } from './schema/trainer_availability.schema';
+import { SMSService } from 'src/auth/sms.service';
 
 @Module({
   imports: [
@@ -30,6 +31,6 @@ import { TrainerEvents, trainerEventSchema } from './schema/trainer_availability
     ]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, AuthService, JwtService, InAppNotificationsService],
+  providers: [UsersService, AuthService, JwtService, InAppNotificationsService, SMSService],
 })
 export class UsersModule {}

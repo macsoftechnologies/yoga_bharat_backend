@@ -4,12 +4,15 @@ import { InAppNotifications } from './schema/inapp.schema';
 import { Model } from 'mongoose';
 import { inAppNotificationsDto } from './dto/inapp.dto';
 import { inAppBookingNotificationsDto } from './dto/inapp-notifications-booking.dto';
+import { User } from 'src/users/schema/user.schema';
 
 @Injectable()
 export class InAppNotificationsService {
   constructor(
     @InjectModel(InAppNotifications.name)
     private readonly inappNotificationsModel: Model<InAppNotifications>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<User>,
   ) {}
 
   async addInAppBookingNotification(req: Partial<inAppBookingNotificationsDto>) {
@@ -69,9 +72,11 @@ export class InAppNotificationsService {
         userId: userId,
       });
       if (getnotifications.length > 0) {
+        const getUser = await this.userModel.findOne({userId: userId});
         return {
           statusCode: HttpStatus.OK,
           message: 'In App Notifications List of user',
+          userRole: getUser?.role,
           data: getnotifications,
         };
       } else {

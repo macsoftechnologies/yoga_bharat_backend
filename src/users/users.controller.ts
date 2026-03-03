@@ -282,6 +282,19 @@ export class UsersController {
     }
   }
 
+  @Post('/sendotp')
+  async sendOtpToUser(@Body() req: userDto) {
+    try{
+      const sendotp = await this.usersService.sendOtp(req);
+      return sendotp
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message
+      }
+    }
+  }
+
   // verify OTP
   @Post('/verifyotp')
   async verifyUser(@Body() req: userDto) {
