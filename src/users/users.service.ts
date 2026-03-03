@@ -425,6 +425,15 @@ export class UsersService {
   // register user through otp
   async registerUser(req: userDto) {
     try {
+      const findUser = await this.userModel.findOne({
+        mobileNumber: req.mobileNumber,
+      });
+      if(findUser) {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: "User Exisited. Please Login."
+        }
+      }
       const add = await this.userModel.create(req);
       if (add) {
         return {
