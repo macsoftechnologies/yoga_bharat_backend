@@ -5,13 +5,12 @@ import {
   HttpStatus,
   Post,
   Query,
+  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import {
-  AnyFilesInterceptor
-} from '@nestjs/platform-express';
+import { AnyFilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
@@ -28,7 +27,7 @@ export class ApptutorialController {
   @Roles(Role.ADMIN)
   @Post('/add')
   @UseInterceptors(
-    AnyFilesInterceptor({
+    FileInterceptor('app_image', {
       storage: diskStorage({
         destination: './files',
         filename: (req, file, cb) => {
@@ -36,19 +35,42 @@ export class ApptutorialController {
             .fill(null)
             .map(() => Math.round(Math.random() * 16).toString(16))
             .join('');
-          cb(null, `${randomName}${extname(file.originalname)}`);
+          const ext = extname(file.originalname).toLowerCase();
+          cb(null, `${randomName}${ext}`);
         },
       }),
+      fileFilter: (req, file, cb) => {
+        const allowedMimeTypes = [
+          'video/mp4',
+          'video/mpeg',
+          'video/quicktime',
+          'video/x-msvideo',
+          'video/x-matroska',
+        ];
+        if (allowedMimeTypes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new Error(
+              `Only video files are allowed. Received: ${file.mimetype}`,
+            ),
+            false,
+          );
+        }
+      },
+      limits: {
+        fileSize: 500 * 1024 * 1024,
+      },
     }),
   )
-  async addTutorial(@Body() req: apptutorialDto, @UploadedFiles() image) {
+  async addTutorial(@Body() req: apptutorialDto, @UploadedFile() app_image) {
     try {
-      const add = await this.ApptutorialService.addTutorial(req, image);
+      const add = await this.ApptutorialService.addTutorial(req, app_image);
       return add;
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
+        message: error.message,
       };
     }
   }
@@ -81,11 +103,40 @@ export class ApptutorialController {
       };
     }
   }
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
+  // @Post('/update')
+  // @UseInterceptors(
+  //   AnyFilesInterceptor({
+  //     storage: diskStorage({
+  //       destination: './files',
+  //       filename: (req, file, cb) => {
+  //         const randomName = Array(32)
+  //           .fill(null)
+  //           .map(() => Math.round(Math.random() * 16).toString(16))
+  //           .join('');
+  //         cb(null, `${randomName}${extname(file.originalname)}`);
+  //       },
+  //     }),
+  //   }),
+  // )
+  // async editApp(@Body() req: apptutorialDto, @UploadedFiles() image) {
+  //   try {
+  //     const moderateApp = await this.ApptutorialService.updateapp(req, image);
+  //     return moderateApp;
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error,
+  //     };
+  //   }
+  // }
+
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Post('/update')
   @UseInterceptors(
-    AnyFilesInterceptor({
+    FileInterceptor('app_image', {
       storage: diskStorage({
         destination: './files',
         filename: (req, file, cb) => {
@@ -93,22 +144,46 @@ export class ApptutorialController {
             .fill(null)
             .map(() => Math.round(Math.random() * 16).toString(16))
             .join('');
-          cb(null, `${randomName}${extname(file.originalname)}`);
+          const ext = extname(file.originalname).toLowerCase();
+          cb(null, `${randomName}${ext}`);
         },
       }),
+      fileFilter: (req, file, cb) => {
+        const allowedMimeTypes = [
+          'video/mp4',
+          'video/mpeg',
+          'video/quicktime',
+          'video/x-msvideo',
+          'video/x-matroska',
+        ];
+        if (allowedMimeTypes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new Error(
+              `Only video files are allowed. Received: ${file.mimetype}`,
+            ),
+            false,
+          );
+        }
+      },
+      limits: {
+        fileSize: 500 * 1024 * 1024, // 500MB
+      },
     }),
   )
-  async editApp(@Body() req: apptutorialDto, @UploadedFiles() image) {
+  async editApp(@Body() req: apptutorialDto, @UploadedFile() app_image) {
     try {
-      const moderateApp = await this.ApptutorialService.updateapp(req, image);
+      const moderateApp = await this.ApptutorialService.updateapp(req, app_image);
       return moderateApp;
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
+        message: error.message,
       };
     }
   }
+
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Post('/delete')

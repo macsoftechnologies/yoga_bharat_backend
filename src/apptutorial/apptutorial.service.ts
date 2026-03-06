@@ -11,21 +11,49 @@ export class ApptutorialService {
     @InjectModel(AppTutorial.name)
     private readonly tutorialModel: Model<AppTutorial>,
   ) {}
-  async addTutorial(req: apptutorialDto, image) {
-    try {
-      if (image) {
-        const reqDoc = image.map((doc, index) => {
-          let IsPrimary = false;
-          if (index == 0) {
-            IsPrimary = true;
-          }
-          const randomNumber = Math.floor(Math.random() * 1000000 + 1);
-          return doc.filename;
-        });
+  // async addTutorial(req: apptutorialDto, image) {
+  //   try {
+  //     if (image) {
+  //       const reqDoc = image.map((doc, index) => {
+  //         let IsPrimary = false;
+  //         if (index == 0) {
+  //           IsPrimary = true;
+  //         }
+  //         const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+  //         return doc.filename;
+  //       });
 
-        req.app_image = reqDoc.toString();
+  //       req.app_image = reqDoc.toString();
+  //     }
+  //     const add = await this.tutorialModel.create(req);
+  //     if (add) {
+  //       return {
+  //         statusCode: HttpStatus.OK,
+  //         message: 'App Tutorial Details added successfully.',
+  //         data: add,
+  //       };
+  //     } else {
+  //       return {
+  //         statusCode: HttpStatus.BAD_REQUEST,
+  //         message: 'Failed to add App Tutorial Details.',
+  //       };
+  //     }
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error,
+  //     };
+  //   }
+  // }
+
+  async addTutorial(req: apptutorialDto, video) {
+    try {
+      if (video) {
+        req.app_image = video.filename;
       }
+
       const add = await this.tutorialModel.create(req);
+
       if (add) {
         return {
           statusCode: HttpStatus.OK,
@@ -41,10 +69,11 @@ export class ApptutorialService {
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
+        message: error.message,
       };
     }
   }
+
   async getAppTutoiral(page: number, limit: number) {
     try {
       const skip = (page - 1) * limit;
@@ -106,11 +135,67 @@ export class ApptutorialService {
       };
     }
   }
-  async updateapp(req: apptutorialDto, image) {
+  // async updateapp(req: apptutorialDto, image) {
+  //   try {
+  //     const findapp = await this.tutorialModel.findOne({
+  //       appId: req.appId,
+  //     });
+
+  //     if (!findapp) {
+  //       return {
+  //         statusCode: HttpStatus.NOT_FOUND,
+  //         message: 'App Tutorial not found',
+  //       };
+  //     }
+
+  //     if (image) {
+  //       const reqDoc = image.map((doc, index) => {
+  //         let IsPrimary = false;
+  //         if (index == 0) {
+  //           IsPrimary = true;
+  //         }
+  //         const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+  //         return doc.filename;
+  //       });
+
+  //       req.app_image = reqDoc.toString();
+  //     }
+
+  //     if (req.app_image) {
+  //       const updateapp = await this.tutorialModel.updateOne(
+  //         { appId: req.appId },
+  //         { $set: { app_image: req.app_image, description: req.description } },
+  //       );
+
+  //       if (updateapp.modifiedCount) {
+  //         return {
+  //           statusCode: HttpStatus.OK,
+  //           message: 'App Tutorial updated successfully',
+  //           data: updateapp,
+  //         };
+  //       } else {
+  //         return {
+  //           statusCode: HttpStatus.EXPECTATION_FAILED,
+  //           message: 'Failed to update App Tutorial',
+  //         };
+  //       }
+  //     }
+
+  //     return {
+  //       statusCode: HttpStatus.BAD_REQUEST,
+  //       message: 'No update data provided',
+  //     };
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error.message,
+  //     };
+  //   }
+  // }
+
+  async updateapp(req: apptutorialDto, video) {
     try {
-      const findapp = await this.tutorialModel.findOne({
-        appId: req.appId,
-      });
+      const findapp = await this.tutorialModel.findOne({ appId: req.appId });
 
       if (!findapp) {
         return {
@@ -119,43 +204,38 @@ export class ApptutorialService {
         };
       }
 
-      if (image) {
-        const reqDoc = image.map((doc, index) => {
-          let IsPrimary = false;
-          if (index == 0) {
-            IsPrimary = true;
-          }
-          const randomNumber = Math.floor(Math.random() * 1000000 + 1);
-          return doc.filename;
-        });
-
-        req.app_image = reqDoc.toString();
+      if (video) {
+        req.app_image = video.filename;
       }
 
-      if (req.app_image) {
-        const updateapp = await this.tutorialModel.updateOne(
-          { appId: req.appId },
-          { $set: { app_image: req.app_image, description: req.description } },
-        );
-
-        if (updateapp.modifiedCount) {
-          return {
-            statusCode: HttpStatus.OK,
-            message: 'App Tutorial updated successfully',
-            data: updateapp,
-          };
-        } else {
-          return {
-            statusCode: HttpStatus.EXPECTATION_FAILED,
-            message: 'Failed to update App Tutorial',
-          };
-        }
+      if (!req.app_image && !req.description) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'No update data provided',
+        };
       }
 
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: 'No update data provided',
-      };
+      const updateFields: any = {};
+      if (req.app_image) updateFields.app_image = req.app_image;
+      if (req.description) updateFields.description = req.description;
+
+      const updateapp = await this.tutorialModel.updateOne(
+        { appId: req.appId },
+        { $set: updateFields },
+      );
+
+      if (updateapp.modifiedCount) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'App Tutorial updated successfully',
+          data: updateapp,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: 'Failed to update App Tutorial',
+        };
+      }
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
