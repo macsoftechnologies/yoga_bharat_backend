@@ -116,6 +116,34 @@ export class YogaService {
             req.yoga_icon = attachmentFile;
           }
         }
+        if (req.yoga_icon && req.yoga_name) {
+          const updateyoga = await this.yogaModel.updateOne(
+            { yogaId: req.yogaId },
+            {
+              $set: {
+                yoga_name: req.yoga_name,
+                yoga_icon: req.yoga_icon,
+                yoga_image: req.yoga_image,
+                yoga_desc: req.yoga_desc,
+                client_price: req.client_price,
+                trainer_price: req.trainer_price,
+                duration: req.duration,
+              },
+            },
+          );
+          if (updateyoga) {
+            return {
+              statusCode: HttpStatus.OK,
+              message: 'Health Preference updated successfully',
+              data: updateyoga,
+            };
+          } else {
+            return {
+              statusCode: HttpStatus.EXPECTATION_FAILED,
+              message: 'Failed to update health preference',
+            };
+          }
+        }
         if (req.yoga_image) {
           const updateyoga = await this.yogaModel.updateOne(
             { yogaId: req.yogaId },
@@ -150,34 +178,6 @@ export class YogaService {
               $set: {
                 yoga_name: req.yoga_name,
                 yoga_icon: req.yoga_icon,
-                yoga_desc: req.yoga_desc,
-                client_price: req.client_price,
-                trainer_price: req.trainer_price,
-                duration: req.duration,
-              },
-            },
-          );
-          if (updateyoga) {
-            return {
-              statusCode: HttpStatus.OK,
-              message: 'Health Preference updated successfully',
-              data: updateyoga,
-            };
-          } else {
-            return {
-              statusCode: HttpStatus.EXPECTATION_FAILED,
-              message: 'Failed to update health preference',
-            };
-          }
-        }
-        if (req.yoga_icon && req.yoga_name) {
-          const updateyoga = await this.yogaModel.updateOne(
-            { yogaId: req.yogaId },
-            {
-              $set: {
-                yoga_name: req.yoga_name,
-                yoga_icon: req.yoga_icon,
-                yoga_image: req.yoga_image,
                 yoga_desc: req.yoga_desc,
                 client_price: req.client_price,
                 trainer_price: req.trainer_price,
