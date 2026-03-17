@@ -1336,7 +1336,7 @@ export class UsersService {
       const start = new Date(req.startDateTime);
       const end = new Date(req.endDateTime);
 
-      if (end <= start) {
+      if (end < start) {
         throw new BadRequestException(
           'endDateTime must be after startDateTime',
         );
