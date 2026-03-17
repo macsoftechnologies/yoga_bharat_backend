@@ -1582,88 +1582,231 @@ export class BookingService {
     };
   }
 
-  async addOrderAlerts(req: orderAlertDto) {
-    try {
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-      const getOrderAlert = await this.orderAlertModel.aggregate([
-        {
-          $match: {
-            trainerId: req.trainerId,
-            createdAt: { $gte: tenMinutesAgo },
-          },
-        },
-        {
-          $sort: { createdAt: -1 },
-        },
-        { $limit: 1 },
-        {
-          $lookup: {
-            from: 'bookings',
-            localField: 'bookingId',
-            foreignField: 'bookingId',
-            as: 'bookingId',
-          },
-        },
-        { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
-        {
-          $lookup: {
-            from: 'roomsessions',
-            localField: 'bookingId.bookingId',
-            foreignField: 'bookingId',
-            as: 'room_details',
-          },
-        },
-        {
-          $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true },
-        },
-        {
-          $lookup: {
-            from: 'yogadetails',
-            localField: 'bookingId.yogaId',
-            foreignField: 'yogaId',
-            as: 'yogaId',
-          },
-        },
-        {
-          $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true },
-        },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'bookingId.clientId',
-            foreignField: 'userId',
-            as: 'clientId',
-          },
-        },
-        {
-          $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true },
-        },
+  // async addOrderAlerts(req: orderAlertDto) {
+  //   try {
+  //     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+  //     const getOrderAlert = await this.orderAlertModel.aggregate([
+  //       {
+  //         $match: {
+  //           trainerId: req.trainerId,
+  //           createdAt: { $gte: tenMinutesAgo },
+  //         },
+  //       },
+  //       {
+  //         $sort: { createdAt: -1 },
+  //       },
+  //       { $limit: 1 },
+  //       {
+  //         $lookup: {
+  //           from: 'bookings',
+  //           localField: 'bookingId',
+  //           foreignField: 'bookingId',
+  //           as: 'bookingId',
+  //         },
+  //       },
+  //       { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+  //       {
+  //         $lookup: {
+  //           from: 'roomsessions',
+  //           localField: 'bookingId.bookingId',
+  //           foreignField: 'bookingId',
+  //           as: 'room_details',
+  //         },
+  //       },
+  //       {
+  //         $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true },
+  //       },
+  //       {
+  //         $lookup: {
+  //           from: 'yogadetails',
+  //           localField: 'bookingId.yogaId',
+  //           foreignField: 'yogaId',
+  //           as: 'yogaId',
+  //         },
+  //       },
+  //       {
+  //         $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true },
+  //       },
+  //       {
+  //         $lookup: {
+  //           from: 'users',
+  //           localField: 'bookingId.clientId',
+  //           foreignField: 'userId',
+  //           as: 'clientId',
+  //         },
+  //       },
+  //       {
+  //         $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true },
+  //       },
 
-        {
-          $project: {
-            bookingId: '$bookingId',
-            yoga_details: '$yogaId',
-            client_details: '$clientId',
-            room_details: '$room_details',
-            status: 1,
-            alertId: 1,
-            createdAt: 1,
-            updatedAt: 1,
-          },
+  //       {
+  //       $lookup: {
+  //         from: 'passed_orders',
+  //         let: {
+  //           trainerId: '$trainerId',
+  //           bookingId: '$bookingId.bookingId',
+  //         },
+  //         pipeline: [
+  //           {
+  //             $match: {
+  //               $expr: {
+  //                 $and: [
+  //                   { $eq: ['$trainerId', '$$trainerId'] },
+  //                   { $eq: ['$bookingId', '$$bookingId'] },
+  //                 ],
+  //               },
+  //             },
+  //           },
+  //         ],
+  //         as: 'passedOrderCheck',
+  //       },
+  //     },
+
+  //     // ❌ If exists in passed_orders → remove
+  //     {
+  //       $match: {
+  //         passedOrderCheck: { $size: 0 },
+  //       },
+  //     },
+
+  //       {
+  //         $project: {
+  //           bookingId: '$bookingId',
+  //           yoga_details: '$yogaId',
+  //           client_details: '$clientId',
+  //           room_details: '$room_details',
+  //           status: 1,
+  //           alertId: 1,
+  //           createdAt: 1,
+  //           updatedAt: 1,
+  //         },
+  //       },
+  //     ]);
+  //     return {
+  //       status: HttpStatus.OK,
+  //       message: 'Order Alert Details',
+  //       data: getOrderAlert[0] || {},
+  //     };
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error.message,
+  //     };
+  //   }
+  // }
+
+  async addOrderAlerts(req: orderAlertDto) {
+  try {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+
+    const getOrderAlert = await this.orderAlertModel.aggregate([
+      {
+        $match: {
+          trainerId: req.trainerId,
+          createdAt: { $gte: tenMinutesAgo },
         },
-      ]);
-      return {
-        status: HttpStatus.OK,
-        message: 'Order Alert Details',
-        data: getOrderAlert[0] || {},
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error.message,
-      };
-    }
+      },
+      { $sort: { createdAt: -1 } },
+      { $limit: 1 },
+
+      {
+        $lookup: {
+          from: 'bookings',
+          localField: 'bookingId',
+          foreignField: 'bookingId',
+          as: 'bookingId',
+        },
+      },
+      { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: 'roomsessions',
+          localField: 'bookingId.bookingId',
+          foreignField: 'bookingId',
+          as: 'room_details',
+        },
+      },
+      { $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: 'yogadetails',
+          localField: 'bookingId.yogaId',
+          foreignField: 'yogaId',
+          as: 'yogaId',
+        },
+      },
+      { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'bookingId.clientId',
+          foreignField: 'userId',
+          as: 'clientId',
+        },
+      },
+      { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
+
+      // ✅ NEW LOGIC STARTS HERE
+      {
+        $lookup: {
+          from: 'passedorders',
+          let: {
+            trainerId: '$trainerId',
+            bookingId: '$bookingId.bookingId',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$trainerId', '$$trainerId'] },
+                    { $eq: ['$bookingId', '$$bookingId'] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: 'passedOrderCheck',
+        },
+      },
+
+      // ❌ If exists in passed_orders → remove
+      {
+        $match: {
+          passedOrderCheck: { $size: 0 },
+        },
+      },
+      // ✅ NEW LOGIC ENDS HERE
+
+      {
+        $project: {
+          bookingId: '$bookingId',
+          yoga_details: '$yogaId',
+          client_details: '$clientId',
+          room_details: '$room_details',
+          status: 1,
+          alertId: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+    ]);
+
+    return {
+      status: HttpStatus.OK,
+      message: 'Order Alert Details',
+      data: getOrderAlert[0] || [],
+    };
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error.message,
+    };
   }
+}
 
   async cancelOrder(req: bookingDto) {
     try {
