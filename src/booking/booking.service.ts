@@ -1902,7 +1902,8 @@ export class BookingService {
           },
         },
       );
-      if (cancel_booking.modifiedCount > 0 && cancel_alert.modifiedCount > 0) {
+      console.log(cancel_booking, cancel_alert);
+      if (cancel_booking.modifiedCount > 0) {
         return {
           statusCode: HttpStatus.OK,
           message: 'Order Cancelled successfully',
