@@ -21,18 +21,6 @@ export class SessionsService {
     try {
       const addsession = await this.roomSessionModel.create(req);
       if (addsession) {
-        const availableTrainerIds = await this.bookingModel.findOne({
-          bookingId: req.bookingId,
-        });
-        availableTrainerIds?.trainerIds.map(async (trainer) => {
-          await this.orderAlertModel.create({
-            ...req,
-            bookingId: availableTrainerIds?.bookingId,
-            clientId: availableTrainerIds.clientId,
-            trainerId: trainer,
-            yogaId: availableTrainerIds.yogaId,
-          });
-        });
         return {
           statusCode: HttpStatus.OK,
           message: 'Room Details added successfully',

@@ -1363,30 +1363,43 @@ export class BookingService {
           professional_details: findBooking?.yogaId,
         });
         if (findBooking && findTrainers.length > 0) {
-          await findTrainers.map(async (trainer) => {
-            const addNotification =
-              await this.inappNotificationService.addInAppBookingNotification({
-                ...req,
-                userId: trainer.userId,
-                message:
-                  'There is a new yoga session booking. Please checkout.',
-                type: 'booking',
-                bookingId: req.bookingId,
-              });
-            if (addNotification) {
-              await this.inAppNotificationModel.updateOne(
-                {
-                  inapp_notification_id:
-                    addNotification.data?.inapp_notification_id,
-                },
-                {
-                  $set: {
-                    status: 'success',
-                  },
-                },
-              );
-            }
+          const OrdersAlerts = findBooking?.trainerIds.map(async (trainer) => {
+            await this.orderAlertModel.create({
+              ...req,
+              bookingId: findBooking?.bookingId,
+              clientId: findBooking.clientId,
+              trainerId: trainer,
+              yogaId: findBooking.yogaId,
+            });
           });
+          if (OrdersAlerts) {
+            await findTrainers.map(async (trainer) => {
+              const addNotification =
+                await this.inappNotificationService.addInAppBookingNotification(
+                  {
+                    ...req,
+                    userId: trainer.userId,
+                    message:
+                      'There is a new yoga session booking. Please checkout.',
+                    type: 'booking',
+                    bookingId: req.bookingId,
+                  },
+                );
+              if (addNotification) {
+                await this.inAppNotificationModel.updateOne(
+                  {
+                    inapp_notification_id:
+                      addNotification.data?.inapp_notification_id,
+                  },
+                  {
+                    $set: {
+                      status: 'success',
+                    },
+                  },
+                );
+              }
+            });
+          }
           return {
             statusCode: HttpStatus.OK,
             message: 'Sent Notifications to trainers',
