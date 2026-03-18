@@ -18,6 +18,7 @@ import { SessionsService } from 'src/sessions/sessions.service';
 import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
 import { RoomSessions, roomSessionSchema } from 'src/sessions/schema/sessions.schema';
 import { OrderAlert, orderAlertSchema } from './schema/order_alert.schema';
+import { TrainerEvents, trainerEventSchema } from 'src/users/schema/trainer_availability.schema';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { OrderAlert, orderAlertSchema } from './schema/order_alert.schema';
       { name: InAppNotifications.name, schema: inappNotificationsSchema },
       { name: RoomSessions.name, schema: roomSessionSchema },
       { name: OrderAlert.name, schema: orderAlertSchema },
+      { name: TrainerEvents.name, schema: trainerEventSchema },
     ]),
   ],
   controllers: [BookingController],
