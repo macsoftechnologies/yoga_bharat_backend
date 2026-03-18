@@ -11,10 +11,6 @@ export class SessionsService {
   constructor(
     @InjectModel(RoomSessions.name)
     private readonly roomSessionModel: Model<RoomSessions>,
-    @InjectModel(Booking.name)
-    private readonly bookingModel: Model<Booking>,
-    @InjectModel(OrderAlert.name)
-    private readonly orderAlertModel: Model<OrderAlert>,
   ) {}
 
   async addroomsession(req: Partial<sessionRoomsDto>) {
