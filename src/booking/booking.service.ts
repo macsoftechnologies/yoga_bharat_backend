@@ -91,15 +91,6 @@ export class BookingService {
         trainerIds: availableTrainerIds,
       });
       if (addbooking) {
-        availableTrainerIds.map(async (trainer) => {
-          await this.orderAlertModel.create({
-            ...req,
-            bookingId: addbooking?.bookingId,
-            clientId: addbooking.clientId,
-            trainerId: trainer,
-            yogaId: addbooking.yogaId,
-          });
-        });
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking created successfully.',
