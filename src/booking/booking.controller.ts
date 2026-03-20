@@ -59,6 +59,7 @@ export class BookingController {
       toDate: query.toDate, // ✅ New
       time: query.time,
       bookingType: query.bookingType,
+      trainerId: query.trainerId
     });
   }
 

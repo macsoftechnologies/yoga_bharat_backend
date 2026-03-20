@@ -22,6 +22,7 @@ import { GetEarningsDto } from './dto/getearnings.dto';
 import { orderAlertDto } from './dto/order_alert.dto';
 import { OrderAlert } from './schema/order_alert.schema';
 import { TrainerEvents } from 'src/users/schema/trainer_availability.schema';
+import { PassedOrders } from 'src/passed_orders/schema/passed_orders.schema';
 
 @Injectable()
 export class BookingService {
@@ -45,6 +46,8 @@ export class BookingService {
     private readonly orderAlertModel: Model<OrderAlert>,
     @InjectModel(TrainerEvents.name)
     private readonly trainerEventsModel: Model<TrainerEvents>,
+    @InjectModel(PassedOrders.name)
+    private readonly passedOrderModel: Model<PassedOrders>,
   ) {}
 
   private formatTimeToHHMMSS(time: string): string {
@@ -322,6 +325,26 @@ export class BookingService {
         match.scheduledDate = {
           $regex: formattedDate,
           $options: 'i',
+        };
+      }
+
+      let excludedBookingIds: string[] = [];
+
+      const isStatusOpened =
+        filters.status && filters.status.toLowerCase() === 'opened';
+
+      if (isStatusOpened && filters.trainerId) {
+        const passedOrders = await this.passedOrderModel
+          .find({ trainerId: filters.trainerId }, { bookingId: 1, _id: 0 })
+          .lean();
+
+        excludedBookingIds = passedOrders.map((order) => order.bookingId);
+      }
+
+      // ✅ Exclude the removed bookingIds from the match stage
+      if (excludedBookingIds.length > 0) {
+        match.bookingId = {
+          $nin: excludedBookingIds,
         };
       }
 
