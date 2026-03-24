@@ -45,6 +45,8 @@ export class User extends Document {
   branch_address: string;
   @Prop({ default: "active" })
   status: string;
+  @Prop({default: false})
+  isDisabled: boolean;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);

@@ -15,4 +15,6 @@ export class callRequestDto{
     date: string
     @ApiProperty()
     adminId: string
+    @ApiProperty()
+    note: string
 }

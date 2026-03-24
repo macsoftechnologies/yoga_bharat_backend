@@ -19,6 +19,8 @@ export class CallRequest extends Document {
   date: string
   @Prop()
   adminId: string
+  @Prop()
+  note: string
 }
 
 export const callRequestSchema = SchemaFactory.createForClass(CallRequest);

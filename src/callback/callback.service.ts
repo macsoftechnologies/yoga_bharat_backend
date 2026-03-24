@@ -98,6 +98,7 @@ export class CallbackService {
           $set: {
             status: CallRequestStatus.COMPLETED,
             adminId: req.adminId,
+            note: req.note
           },
         },
       );

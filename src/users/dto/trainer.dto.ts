@@ -19,4 +19,6 @@ export class trainerDto{
     profile_pic: string
     @ApiProperty()
     role: string
+    @ApiProperty()
+    isDisabled: boolean
 }

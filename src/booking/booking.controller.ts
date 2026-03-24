@@ -59,7 +59,9 @@ export class BookingController {
       toDate: query.toDate, // ✅ New
       time: query.time,
       bookingType: query.bookingType,
-      trainerId: query.trainerId
+      trainerId: query.trainerId,
+      sortOrder: query.sortOrder,
+      isExport: query.isExport,
     });
   }
 
@@ -105,18 +107,35 @@ export class BookingController {
     }
   }
 
-  @Post('/gettrainerearning')
-  async getTrainerEarning(@Body() req: earningDto) {
-    try {
-      const add = await this.bookingService.getEarnings(req);
-      return add;
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
-      };
-    }
+  // @Post('/gettrainerearning')
+  // async getTrainerEarning(@Body() req: earningDto) {
+  //   try {
+  //     const add = await this.bookingService.getEarnings(req);
+  //     return add;
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error,
+  //     };
+  //   }
+  // }
+
+@Post('/gettrainerearning')
+async getTrainerEarning(
+  @Body() req: earningDto,
+  @Query('page') page?: number,
+  @Query('limit') limit?: number,
+) {
+  try {
+    const add = await this.bookingService.getEarnings(req, page, limit);
+    return add;
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error,
+    };
   }
+}
 
   @Post('/gettrainermonthlyearning')
   async getTrainerMonthlyEarning(@Body() req: earningDto) {

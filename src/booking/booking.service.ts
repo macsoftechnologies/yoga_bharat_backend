@@ -439,6 +439,21 @@ export class BookingService {
 
       pipeline.push({ $sort: { createdAt: -1 } });
 
+      const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
+      pipeline.push({
+        $sort: { createdAt: sortDirection, _id: sortDirection },
+      });
+
+      if (filters.isExport === 'true' || filters.isExport === true) {
+        const data = await this.bookingModel.aggregate(pipeline);
+        return {
+          statusCode: 200,
+          message: 'Export data fetched successfully',
+          totalCount: data.length,
+          data,
+        };
+      }
+
       pipeline.push({
         $facet: {
           data: [{ $skip: skip }, { $limit: limit }],
@@ -655,31 +670,234 @@ export class BookingService {
     }
   }
 
-  async getEarnings(req: earningDto) {
+  // async getEarnings(req: earningDto) {
+  //   try {
+  //     const result = await this.earningModel.aggregate([
+  //       { $match: { trainerId: req.trainerId } },
+  //       {
+  //         $lookup: {
+  //           from: 'users',
+  //           localField: 'clientId',
+  //           foreignField: 'userId',
+  //           as: 'clientId',
+  //         },
+  //       },
+  //       {
+  //         $lookup: {
+  //           from: 'bookings',
+  //           localField: 'bookingId',
+  //           foreignField: 'bookingId',
+  //           as: 'bookingId',
+  //         },
+  //       },
+  //       {
+  //         $lookup: {
+  //           from: 'yogadetails',
+  //           localField: 'yogaId',
+  //           foreignField: 'yogaId',
+  //           as: 'yogaId',
+  //         },
+  //       },
+  //       {
+  //         $facet: {
+  //           data: [
+  //             { $sort: { createdAt: -1 } }, // optional
+  //           ],
+  //           total: [
+  //             {
+  //               $group: {
+  //                 _id: null,
+  //                 totalAmount: { $sum: '$earned_amount' },
+  //               },
+  //             },
+  //           ],
+  //         },
+  //       },
+  //     ]);
+
+  //     return {
+  //       statusCode: HttpStatus.OK,
+  //       message: 'Earnings of Trainer',
+  //       Total: result[0]?.total[0]?.totalAmount || 0,
+  //       data: result[0]?.data || [],
+  //     };
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error.message,
+  //     };
+  //   }
+  // }
+
+  async getEarnings(req: earningDto, page?: number, limit?: number) {
     try {
-      const result = await this.earningModel.aggregate([
-        { $match: { trainerId: req.trainerId } },
+      const matchStage: Record<string, any> = {
+        trainerId: req.trainerId,
+      };
+
+      if (req.fromDate || req.toDate) {
+        const dateConditions: any[] = [];
+
+        if (req.fromDate) {
+          const from = new Date(req.fromDate);
+          from.setHours(0, 0, 0, 0);
+          dateConditions.push({
+            $gte: [
+              {
+                $dateFromString: {
+                  dateString: { $substrCP: ['$date', 4, 29] },
+                  format: '%b %d %Y %H:%M:%S %z',
+                  onError: null,
+                  onNull: null,
+                },
+              },
+              from,
+            ],
+          });
+        }
+
+        if (req.toDate) {
+          const to = new Date(req.toDate);
+          to.setHours(23, 59, 59, 999);
+          dateConditions.push({
+            $lte: [
+              {
+                $dateFromString: {
+                  dateString: { $substrCP: ['$date', 4, 29] },
+                  format: '%b %d %Y %H:%M:%S %z',
+                  onError: null,
+                  onNull: null,
+                },
+              },
+              to,
+            ],
+          });
+        }
+
+        matchStage['$expr'] =
+          dateConditions.length === 1
+            ? dateConditions[0]
+            : { $and: dateConditions };
+      }
+
+      const bookingMatchStage: Record<string, any> = {};
+
+      if (req.bookingType && req.bookingType.trim() !== '') {
+        bookingMatchStage['bookingDetails.bookingType'] = req.bookingType;
+      }
+
+      const yogaMatchStage: Record<string, any> = {};
+
+      if (req.yogaType && req.yogaType.trim() !== '') {
+        yogaMatchStage['yogaDetails.yoga_name'] = {
+          $regex: req.yogaType,
+          $options: 'i',
+        };
+      }
+
+      const hasBookingFilter = Object.keys(bookingMatchStage).length > 0;
+      const hasYogaFilter = Object.keys(yogaMatchStage).length > 0;
+
+      const basePipeline: any[] = [
+        { $match: matchStage },
+
+        {
+          $lookup: {
+            from: 'bookings',
+            localField: 'bookingId',
+            foreignField: 'bookingId',
+            as: 'bookingDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$bookingDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        ...(hasBookingFilter ? [{ $match: bookingMatchStage }] : []),
+
         {
           $lookup: {
             from: 'users',
             localField: 'clientId',
             foreignField: 'userId',
-            as: 'clientId',
+            as: 'clientDetails',
           },
         },
+        {
+          $unwind: {
+            path: '$clientDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
         {
           $lookup: {
             from: 'yogadetails',
             localField: 'yogaId',
             foreignField: 'yogaId',
-            as: 'yogaId',
+            as: 'yogaDetails',
           },
         },
         {
+          $unwind: {
+            path: '$yogaDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        ...(hasYogaFilter ? [{ $match: yogaMatchStage }] : []),
+      ];
+
+      const isPaginated = page !== undefined && limit !== undefined;
+      const _page = Number(page) || 1;
+      const _limit = Number(limit) || 10;
+      const skip = (_page - 1) * _limit;
+
+      if (isPaginated) {
+        const result = await this.earningModel.aggregate([
+          ...basePipeline,
+          {
+            $facet: {
+              data: [
+                { $sort: { createdAt: -1 } },
+                { $skip: skip },
+                { $limit: _limit },
+              ],
+              total: [
+                {
+                  $group: {
+                    _id: null,
+                    totalAmount: { $sum: '$earned_amount' },
+                    totalRecords: { $sum: 1 },
+                  },
+                },
+              ],
+            },
+          },
+        ]);
+
+        const totalRecords = result[0]?.total[0]?.totalRecords || 0;
+
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Earnings of Trainer',
+          Total: result[0]?.total[0]?.totalAmount || 0,
+          currentPage: _page,
+          limit: _limit,
+          totalCount: totalRecords,
+          totalPages: Math.ceil(totalRecords / _limit),
+          data: result[0]?.data || [],
+        };
+      }
+
+      const result = await this.earningModel.aggregate([
+        ...basePipeline,
+        {
           $facet: {
-            data: [
-              { $sort: { createdAt: -1 } }, // optional
-            ],
+            data: [{ $sort: { createdAt: -1 } }],
             total: [
               {
                 $group: {
@@ -705,6 +923,196 @@ export class BookingService {
       };
     }
   }
+
+  // async getEarnings(req: earningDto, page?: number, limit?: number) {
+  //   try {
+  //     const matchStage: Record<string, any> = {
+  //       trainerId: req.trainerId,
+  //     };
+
+  //     if (req.fromDate || req.toDate) {
+  //       const dateConditions: any[] = [];
+
+  //       if (req.fromDate) {
+  //         const from = new Date(req.fromDate);
+  //         from.setHours(0, 0, 0, 0);
+  //         dateConditions.push({
+  //           $gte: [
+  //             {
+  //               $dateFromString: {
+  //                 dateString: { $substrCP: ['$date', 4, 29] },
+  //                 format: '%b %d %Y %H:%M:%S %z',
+  //                 onError: null,
+  //                 onNull: null,
+  //               },
+  //             },
+  //             from,
+  //           ],
+  //         });
+  //       }
+
+  //       if (req.toDate) {
+  //         const to = new Date(req.toDate);
+  //         to.setHours(23, 59, 59, 999);
+  //         dateConditions.push({
+  //           $lte: [
+  //             {
+  //               $dateFromString: {
+  //                 dateString: { $substrCP: ['$date', 4, 29] },
+  //                 format: '%b %d %Y %H:%M:%S %z',
+  //                 onError: null,
+  //                 onNull: null,
+  //               },
+  //             },
+  //             to,
+  //           ],
+  //         });
+  //       }
+
+  //       matchStage['$expr'] =
+  //         dateConditions.length === 1
+  //           ? dateConditions[0]
+  //           : { $and: dateConditions };
+  //     }
+
+  //     const bookingMatchStage: Record<string, any> = {};
+
+  //     if (req.yogaType && req.yogaType.trim() !== '') {
+  //       bookingMatchStage['bookingDetails.yogaType'] = req.yogaType;
+  //     }
+
+  //     if (req.bookingType && req.bookingType.trim() !== '') {
+  //       bookingMatchStage['bookingDetails.bookingType'] = req.bookingType;
+  //     }
+
+  //     const hasBookingFilter = Object.keys(bookingMatchStage).length > 0;
+
+  //     const basePipeline: any[] = [
+  //       { $match: matchStage },
+
+  //       {
+  //         $lookup: {
+  //           from: 'bookings',
+  //           localField: 'bookingId',
+  //           foreignField: 'bookingId',
+  //           as: 'bookingDetails',
+  //         },
+  //       },
+  //       {
+  //         $unwind: {
+  //           path: '$bookingDetails',
+  //           preserveNullAndEmptyArrays: true,
+  //         },
+  //       },
+
+  //       ...(hasBookingFilter ? [{ $match: bookingMatchStage }] : []),
+
+  //       {
+  //         $lookup: {
+  //           from: 'users',
+  //           localField: 'clientId',
+  //           foreignField: 'userId',
+  //           as: 'clientDetails',
+  //         },
+  //       },
+  //       {
+  //         $unwind: {
+  //           path: '$clientDetails',
+  //           preserveNullAndEmptyArrays: true,
+  //         },
+  //       },
+
+  //       {
+  //         $lookup: {
+  //           from: 'yogadetails',
+  //           localField: 'yogaId',
+  //           foreignField: 'yogaId',
+  //           as: 'yogaDetails',
+  //         },
+  //       },
+  //       {
+  //         $unwind: {
+  //           path: '$yogaDetails',
+  //           preserveNullAndEmptyArrays: true,
+  //         },
+  //       },
+  //     ];
+
+  //     const isPaginated = page !== undefined && limit !== undefined;
+  //     const _page  = Number(page)  || 1;
+  //     const _limit = Number(limit) || 10;
+  //     const skip   = (_page - 1) * _limit;
+
+  //     if (isPaginated) {
+  //       const result = await this.earningModel.aggregate([
+  //         ...basePipeline,
+  //         {
+  //           $facet: {
+  //             data: [
+  //               { $sort: { createdAt: -1 } },
+  //               { $skip: skip },
+  //               { $limit: _limit },
+  //             ],
+  //             total: [
+  //               {
+  //                 $group: {
+  //                   _id: null,
+  //                   totalAmount: { $sum: '$earned_amount' },
+  //                   totalRecords: { $sum: 1 },
+  //                 },
+  //               },
+  //             ],
+  //           },
+  //         },
+  //       ]);
+
+  //       const totalRecords = result[0]?.total[0]?.totalRecords || 0;
+
+  //       return {
+  //         statusCode: HttpStatus.OK,
+  //         message: 'Earnings of Trainer',
+  //         Total: result[0]?.total[0]?.totalAmount || 0,
+  //         pagination: {
+  //           page: _page,
+  //           limit: _limit,
+  //           totalRecords,
+  //           totalPages: Math.ceil(totalRecords / _limit),
+  //         },
+  //         data: result[0]?.data || [],
+  //       };
+  //     }
+
+  //     const result = await this.earningModel.aggregate([
+  //       ...basePipeline,
+  //       {
+  //         $facet: {
+  //           data: [{ $sort: { createdAt: -1 } }],
+  //           total: [
+  //             {
+  //               $group: {
+  //                 _id: null,
+  //                 totalAmount: { $sum: '$earned_amount' },
+  //               },
+  //             },
+  //           ],
+  //         },
+  //       },
+  //     ]);
+
+  //     return {
+  //       statusCode: HttpStatus.OK,
+  //       message: 'Earnings of Trainer',
+  //       Total: result[0]?.total[0]?.totalAmount || 0,
+  //       data: result[0]?.data || [],
+  //     };
+
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error.message,
+  //     };
+  //   }
+  // }
 
   async getCurrentMonthEarnings(req: earningDto) {
     try {

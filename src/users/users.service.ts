@@ -818,105 +818,296 @@ export class UsersService {
     }
   }
 
-  async getClients(page: number, limit: number) {
-    try {
-      const skip = (page - 1) * limit;
+  // async getClients(page: number, limit: number) {
+  //   try {
+  //     const skip = (page - 1) * limit;
 
-      // --- 1. Total count ---
-      const totalCount = await this.userModel
-        .find({ role: Role.CLIENT })
-        .countDocuments();
+  //     // --- 1. Total count ---
+  //     const totalCount = await this.userModel
+  //       .find({ role: Role.CLIENT })
+  //       .countDocuments();
 
-      // --- 2. Paginated aggregation ---
-      const getusers = await this.userModel.aggregate([
-        { $match: { role: Role.CLIENT } },
-        {
-          $lookup: {
-            from: 'healthpreferences',
-            localField: 'health_preference',
-            foreignField: 'prefId',
-            as: 'health_preference',
-          },
+  //     // --- 2. Paginated aggregation ---
+  //     const getusers = await this.userModel.aggregate([
+  //       { $match: { role: Role.CLIENT } },
+  //       {
+  //         $lookup: {
+  //           from: 'healthpreferences',
+  //           localField: 'health_preference',
+  //           foreignField: 'prefId',
+  //           as: 'health_preference',
+  //         },
+  //       },
+  //       // {
+  //       //   $addFields: {
+  //       //     certificates: {
+  //       //       $cond: {
+  //       //         if: { $gt: [{ $size: '$certificates' }, 0] },
+  //       //         then: '$certificates',
+  //       //         else: '$$REMOVE',
+  //       //       },
+  //       //     },
+  //       //     journey_images: {
+  //       //       $cond: {
+  //       //         if: { $gt: [{ $size: '$journey_images' }, 0] },
+  //       //         then: '$journey_images',
+  //       //         else: '$$REMOVE',
+  //       //       },
+  //       //     },
+  //       //   },
+  //       // },
+  //       { $skip: skip },
+  //       { $limit: limit },
+  //     ]);
+
+  //     return {
+  //       statusCode: HttpStatus.OK,
+  //       message: 'List of Clients',
+  //       currentPage: page,
+  //       limit,
+  //       totalCount,
+  //       totalPages: Math.ceil(totalCount / limit),
+  //       data: getusers,
+  //     };
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error.message || error,
+  //     };
+  //   }
+  // }
+
+async getClients(page: number, limit: number, filters: any = {}) {
+  try {
+    const skip = (page - 1) * limit;
+
+    const pipeline: any[] = [];
+
+    const match: any = { role: Role.CLIENT };
+
+    if (filters.gender) {
+      match.gender = { $regex: new RegExp(filters.gender, 'i') };
+    }
+
+    if (filters.fromDate || filters.toDate) {
+      match.createdAt = {};
+      if (filters.fromDate) {
+        match.createdAt.$gte = new Date(filters.fromDate);
+      }
+      if (filters.toDate) {
+        const toDate = new Date(filters.toDate);
+        toDate.setHours(23, 59, 59, 999);
+        match.createdAt.$lte = toDate;
+      }
+    }
+
+    pipeline.push({ $match: match });
+
+    pipeline.push(
+      {
+        $lookup: {
+          from: 'healthpreferences',
+          localField: 'health_preference',
+          foreignField: 'prefId',
+          as: 'health_preference',
         },
-        // {
-        //   $addFields: {
-        //     certificates: {
-        //       $cond: {
-        //         if: { $gt: [{ $size: '$certificates' }, 0] },
-        //         then: '$certificates',
-        //         else: '$$REMOVE',
-        //       },
-        //     },
-        //     journey_images: {
-        //       $cond: {
-        //         if: { $gt: [{ $size: '$journey_images' }, 0] },
-        //         then: '$journey_images',
-        //         else: '$$REMOVE',
-        //       },
-        //     },
-        //   },
-        // },
-        { $skip: skip },
-        { $limit: limit },
-      ]);
+      },
+    );
 
-      return {
-        statusCode: HttpStatus.OK,
-        message: 'List of Clients',
-        currentPage: page,
-        limit,
-        totalCount,
-        totalPages: Math.ceil(totalCount / limit),
-        data: getusers,
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error.message || error,
+    const searchMatch: any = {};
+
+    if (filters.name) {
+      searchMatch.name = { $regex: new RegExp(filters.name, 'i') };
+    }
+
+    if (filters.mobileNumber) {
+      searchMatch.mobileNumber = {
+        $regex: new RegExp(filters.mobileNumber, 'i'),
       };
     }
-  }
 
-  async getTrainers(page: number, limit: number) {
-    try {
-      const skip = (page - 1) * limit;
+    if (Object.keys(searchMatch).length > 0) {
+      pipeline.push({ $match: searchMatch });
+    }
 
-      // --- 1. Total count ---
-      const totalCount = await this.userModel
-        .find({ role: Role.TRAINER })
-        .countDocuments();
+    const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
+    pipeline.push({ $sort: { createdAt: sortDirection, _id: sortDirection } });
 
-      // --- 2. Paginated aggregation ---
-      const getusers = await this.userModel.aggregate([
-        { $match: { role: Role.TRAINER } },
-        {
-          $lookup: {
-            from: 'yogadetails',
-            localField: 'professional_details',
-            foreignField: 'yogaId',
-            as: 'professional_details',
-          },
-        },
-        { $skip: skip },
-        { $limit: limit },
-      ]);
-
+    if (filters.isExport === 'true' || filters.isExport === true) {
+      const data = await this.userModel.aggregate(pipeline);
       return {
         statusCode: HttpStatus.OK,
-        message: 'List of Trainers',
-        currentPage: page,
-        limit,
-        totalCount,
-        totalPages: Math.ceil(totalCount / limit),
-        data: getusers,
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error.message || error,
+        message: 'Export data fetched successfully',
+        totalCount: data.length,
+        data,
       };
     }
+
+    pipeline.push({
+      $facet: {
+        data: [{ $skip: skip }, { $limit: limit }],
+        totalCount: [{ $count: 'count' }],
+      },
+    });
+
+    const result = await this.userModel.aggregate(pipeline);
+
+    const getusers = result[0].data;
+    const totalCount = result[0].totalCount[0]?.count || 0;
+
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'List of Clients',
+      currentPage: page,
+      limit,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      data: getusers,
+    };
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error.message || error,
+    };
   }
+}
+
+  // async getTrainers(page: number, limit: number) {
+  //   try {
+  //     const skip = (page - 1) * limit;
+
+  //     // --- 1. Total count ---
+  //     const totalCount = await this.userModel
+  //       .find({ role: Role.TRAINER })
+  //       .countDocuments();
+
+  //     // --- 2. Paginated aggregation ---
+  //     const getusers = await this.userModel.aggregate([
+  //       { $match: { role: Role.TRAINER } },
+  //       {
+  //         $lookup: {
+  //           from: 'yogadetails',
+  //           localField: 'professional_details',
+  //           foreignField: 'yogaId',
+  //           as: 'professional_details',
+  //         },
+  //       },
+  //       { $skip: skip },
+  //       { $limit: limit },
+  //     ]);
+
+  //     return {
+  //       statusCode: HttpStatus.OK,
+  //       message: 'List of Trainers',
+  //       currentPage: page,
+  //       limit,
+  //       totalCount,
+  //       totalPages: Math.ceil(totalCount / limit),
+  //       data: getusers,
+  //     };
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error.message || error,
+  //     };
+  //   }
+  // }
+
+async getTrainers(page: number, limit: number, filters: any = {}) {
+  try {
+    const skip = (page - 1) * limit;
+
+    const pipeline: any[] = [];
+
+    // --- 1. Base match: only trainers ---
+    const match: any = { role: Role.TRAINER };
+
+    // --- 2. Filter by date range on createdAt ---
+    if (filters.fromDate || filters.toDate) {
+      match.createdAt = {};
+      if (filters.fromDate) {
+        match.createdAt.$gte = new Date(filters.fromDate);
+      }
+      if (filters.toDate) {
+        const toDate = new Date(filters.toDate);
+        toDate.setHours(23, 59, 59, 999);
+        match.createdAt.$lte = toDate;
+      }
+    }
+
+    pipeline.push({ $match: match });
+
+    // --- 3. Lookup yoga/professional details ---
+    pipeline.push({
+      $lookup: {
+        from: 'yogadetails',
+        localField: 'professional_details',
+        foreignField: 'yogaId',
+        as: 'professional_details',
+      },
+    });
+
+    // --- 4. Filter by name or mobileNumber ---
+    const searchMatch: any = {};
+
+    if (filters.name) {
+      searchMatch.name = { $regex: new RegExp(filters.name, 'i') };
+    }
+
+    if (filters.mobileNumber) {
+      searchMatch.mobileNumber = {
+        $regex: new RegExp(filters.mobileNumber, 'i'),
+      };
+    }
+
+    if (Object.keys(searchMatch).length > 0) {
+      pipeline.push({ $match: searchMatch });
+    }
+
+    // --- 5. Sort ---
+    const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
+    pipeline.push({ $sort: { createdAt: sortDirection, _id: sortDirection } });
+
+    // --- 6. If isExport, return all filtered data without pagination ---
+    if (filters.isExport === 'true' || filters.isExport === true) {
+      const data = await this.userModel.aggregate(pipeline);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Export data fetched successfully',
+        totalCount: data.length,
+        data,
+      };
+    }
+
+    // --- 7. Paginated response using $facet ---
+    pipeline.push({
+      $facet: {
+        data: [{ $skip: skip }, { $limit: limit }],
+        totalCount: [{ $count: 'count' }],
+      },
+    });
+
+    const result = await this.userModel.aggregate(pipeline);
+
+    const getusers = result[0].data;
+    const totalCount = result[0].totalCount[0]?.count || 0;
+
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'List of Trainers',
+      currentPage: page,
+      limit,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      data: getusers,
+    };
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error.message || error,
+    };
+  }
+}
 
   async approveTrainer(req: trainerEKYCDto) {
     try {
@@ -926,7 +1117,7 @@ export class UsersService {
           { userId: req.userId },
           {
             $set: {
-              ekyc_status: EKYCstatus.APPROVED,
+              ekyc_status: req.ekyc_status,
             },
           },
         );
@@ -972,6 +1163,35 @@ export class UsersService {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
       };
+    }
+  }
+
+  async disableTrainer(req: trainerDto) {
+    try{
+      const findTrainer = await this.userModel.findOne({userId: req.userId});
+      if(findTrainer) {
+        const disableTrainer = await this.userModel.updateOne({userId: findTrainer.userId},{
+          $set: {
+            isDisabled: true
+          }
+        });
+        if(disableTrainer) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: "Trainer Disabled Sucessfully",
+          }
+        } else {
+          return {
+            statusCode: HttpStatus.EXPECTATION_FAILED,
+            message: "Failed to update",
+          }
+        }
+      }
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
     }
   }
 

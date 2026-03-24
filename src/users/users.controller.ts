@@ -393,41 +393,105 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Get('/clients')
-  async getClientsList(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    try {
-      const getlist = await this.usersService.getClients(+page, +limit);
-      return getlist;
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
-      };
-    }
-  }
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
+  // @Get('/clients')
+  // async getClientsList(
+  //   @Query('page') page: number = 1,
+  //   @Query('limit') limit: number = 10,
+  // ) {
+  //   try {
+  //     const getlist = await this.usersService.getClients(+page, +limit);
+  //     return getlist;
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error,
+  //     };
+  //   }
+  // }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Get('/trainers')
-  async getTrainersList(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    try {
-      const getlist = await this.usersService.getTrainers(+page, +limit);
-      return getlist;
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
-      };
-    }
+@UseGuards(JwtGuard, RolesGuard)
+@Roles(Role.ADMIN)
+@Get('/clients')
+async getClientsList(
+  @Query('page') page: number = 1,
+  @Query('limit') limit: number = 10,
+  @Query('name') name?: string,
+  @Query('mobileNumber') mobileNumber?: string,
+  @Query('sortOrder') sortOrder?: string,
+  @Query('fromDate') fromDate?: string,
+  @Query('toDate') toDate?: string,
+  @Query('gender') gender?: string,
+  @Query('isExport') isExport?: string,
+) {
+  try {
+    const getlist = await this.usersService.getClients(+page, +limit, {
+      name,
+      mobileNumber,
+      sortOrder,
+      fromDate,
+      toDate,
+      gender,
+      isExport,
+    });
+    return getlist;
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error,
+    };
   }
+}
+
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
+  // @Get('/trainers')
+  // async getTrainersList(
+  //   @Query('page') page: number = 1,
+  //   @Query('limit') limit: number = 10,
+  // ) {
+  //   try {
+  //     const getlist = await this.usersService.getTrainers(+page, +limit);
+  //     return getlist;
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error,
+  //     };
+  //   }
+  // }
+
+@UseGuards(JwtGuard, RolesGuard)
+@Roles(Role.ADMIN)
+@Get('/trainers')
+async getTrainersList(
+  @Query('page') page: number = 1,
+  @Query('limit') limit: number = 10,
+  @Query('name') name?: string,
+  @Query('mobileNumber') mobileNumber?: string,
+  @Query('sortOrder') sortOrder?: string,
+  @Query('fromDate') fromDate?: string,
+  @Query('toDate') toDate?: string,
+  @Query('isExport') isExport?: string,
+) {
+  try {
+    const getlist = await this.usersService.getTrainers(+page, +limit, {
+      name,
+      mobileNumber,
+      sortOrder,
+      fromDate,
+      toDate,
+      isExport,
+    });
+    return getlist;
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error,
+    };
+  }
+}
 
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -436,6 +500,21 @@ export class UsersController {
     try {
       const accepttrainer = await this.usersService.approveTrainer(req);
       return accepttrainer;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/disabletrainer')
+  async disableTrainer(@Body() req: trainerDto) {
+    try {
+      const disable = await this.usersService.disableTrainer(req);
+      return disable;
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
