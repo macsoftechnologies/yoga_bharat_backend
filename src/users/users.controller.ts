@@ -474,6 +474,7 @@ async getTrainersList(
   @Query('fromDate') fromDate?: string,
   @Query('toDate') toDate?: string,
   @Query('isExport') isExport?: string,
+  @Query('gender') gender?: string,
 ) {
   try {
     const getlist = await this.usersService.getTrainers(+page, +limit, {
@@ -483,6 +484,7 @@ async getTrainersList(
       fromDate,
       toDate,
       isExport,
+      gender
     });
     return getlist;
   } catch (error) {

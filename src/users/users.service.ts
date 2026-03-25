@@ -1022,6 +1022,10 @@ async getTrainers(page: number, limit: number, filters: any = {}) {
     // --- 1. Base match: only trainers ---
     const match: any = { role: Role.TRAINER };
 
+    if (filters.gender) {
+      match.gender = { $regex: new RegExp(filters.gender, 'i') };
+    }
+
     // --- 2. Filter by date range on createdAt ---
     if (filters.fromDate || filters.toDate) {
       match.createdAt = {};
