@@ -1176,7 +1176,7 @@ async getTrainers(page: number, limit: number, filters: any = {}) {
       if(findTrainer) {
         const disableTrainer = await this.userModel.updateOne({userId: findTrainer.userId},{
           $set: {
-            isDisabled: true
+            isDisabled: req.isDisabled
           }
         });
         if(disableTrainer) {
