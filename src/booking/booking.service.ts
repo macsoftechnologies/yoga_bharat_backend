@@ -224,7 +224,15 @@ export class BookingService {
   async getBookings(page: number, limit: number, filters: any) {
     try {
       const skip = (page - 1) * limit;
-
+      Object.keys(filters).forEach((key) => {
+        if (
+          filters[key] === '' ||
+          filters[key] === null ||
+          filters[key] === undefined
+        ) {
+          delete filters[key];
+        }
+      });
       const match: any = {};
 
       if (filters.bookingId) match.bookingId = filters.bookingId;
@@ -414,22 +422,19 @@ export class BookingService {
 
       if (filters.clientName) {
         nameMatch['clientId.name'] = {
-          $regex: filters.clientName,
-          $options: 'i',
+          $regex: new RegExp(filters.clientName.trim(), 'i'),
         };
       }
 
       if (filters.trainerName) {
         nameMatch['accepted_trainerId.name'] = {
-          $regex: filters.trainerName,
-          $options: 'i',
+          $regex: new RegExp(filters.trainerName.trim(), 'i'),
         };
       }
 
       if (filters.yogaName) {
         nameMatch['yogaId.yoga_name'] = {
-          $regex: filters.yogaName,
-          $options: 'i',
+          $regex: new RegExp(filters.yogaName.trim(), 'i'),
         };
       }
 
@@ -439,7 +444,9 @@ export class BookingService {
 
       pipeline.push({ $sort: { createdAt: -1 } });
 
-      const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
+      const sortDirection = filters.sortOrder?.toLowerCase().startsWith('asc')
+        ? 1
+        : -1;
       pipeline.push({
         $sort: { createdAt: sortDirection, _id: sortDirection },
       });
@@ -579,6 +586,66 @@ export class BookingService {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
+      };
+    }
+  }
+
+  async ongoingStatus(req: bookingDto) {
+    const accept = await this.bookingModel.updateOne(
+      { bookingId: req.bookingId },
+      {
+        $set: {
+          status: 'ongoing',
+        },
+      },
+    );
+    if (accept) {
+      const findBooking = await this.bookingModel.findOne({
+        bookingId: req.bookingId,
+      });
+      let inappDto: any = {} as inAppNotificationsDto;
+      const acceptNotification =
+        await this.inappNotificationService.addInAppNotification({
+          ...inappDto,
+          userId: findBooking?.clientId,
+          message: 'Yay! Your booking has started.',
+          type: 'ongoing_booking',
+        });
+      await this.orderAlertModel.updateOne(
+        {
+          $and: [
+            { bookingId: req.bookingId },
+            { trainerId: findBooking?.accepted_trainerId },
+          ],
+        },
+        {
+          $set: { status: 'ongoing' },
+        },
+      );
+      if (acceptNotification) {
+        await this.inAppNotificationModel.updateOne(
+          {
+            inapp_notification_id:
+              acceptNotification?.data?.inapp_notification_id,
+          },
+          {
+            $set: {
+              status: 'success',
+            },
+          },
+        );
+      }
+      // const findSession = await this.roomSessionModel.findOne({
+      //   bookingId: req.bookingId,
+      // });
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Booking started successfully',
+      };
+    } else {
+      return {
+        statusCode: HttpStatus.EXPECTATION_FAILED,
+        message: 'Failed to accept booking.',
       };
     }
   }

@@ -55,13 +55,16 @@ export class BookingController {
       yogaId: query.yogaId,
       bookingId: query.bookingId,
       scheduledDate: query.scheduledDate,
-      fromDate: query.fromDate, // ✅ New
-      toDate: query.toDate, // ✅ New
+      fromDate: query.fromDate,
+      toDate: query.toDate,
       time: query.time,
       bookingType: query.bookingType,
       trainerId: query.trainerId,
       sortOrder: query.sortOrder,
       isExport: query.isExport,
+      clientName: query.clientName,
+      trainerName: query.trainerName,
+      yogaName: query.yogaName,
     });
   }
 
@@ -85,6 +88,19 @@ export class BookingController {
   async acceptbooking(@Body() req: bookingDto) {
     try {
       const accept = await this.bookingService.acceptBooking(req);
+      return accept;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @Post('/ongoing')
+  async ongoingbooking(@Body() req: bookingDto) {
+    try {
+      const accept = await this.bookingService.ongoingStatus(req);
       return accept;
     } catch (error) {
       return {
@@ -120,22 +136,22 @@ export class BookingController {
   //   }
   // }
 
-@Post('/gettrainerearning')
-async getTrainerEarning(
-  @Body() req: earningDto,
-  @Query('page') page?: number,
-  @Query('limit') limit?: number,
-) {
-  try {
-    const add = await this.bookingService.getEarnings(req, page, limit);
-    return add;
-  } catch (error) {
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: error,
-    };
+  @Post('/gettrainerearning')
+  async getTrainerEarning(
+    @Body() req: earningDto,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    try {
+      const add = await this.bookingService.getEarnings(req, page, limit);
+      return add;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
   }
-}
 
   @Post('/gettrainermonthlyearning')
   async getTrainerMonthlyEarning(@Body() req: earningDto) {
