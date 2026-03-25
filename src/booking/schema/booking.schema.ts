@@ -30,6 +30,10 @@ export class Booking extends Document {
   status: string;
   @Prop()
   trainerIds: [];
+  @Prop()
+  refundId: string;
+  @Prop()
+  refundStatus: string;
 }
 
 export const bookingSchema = SchemaFactory.createForClass(Booking);

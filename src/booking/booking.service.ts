@@ -27,6 +27,10 @@ import { PassedOrders } from 'src/passed_orders/schema/passed_orders.schema';
 @Injectable()
 export class BookingService {
   private readonly IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  private razorpay = new (require('razorpay'))({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
   constructor(
     @InjectModel(Booking.name) private readonly bookingModel: Model<Booking>,
     @InjectModel(User.name) private readonly userModel: Model<User>,
@@ -2382,37 +2386,168 @@ export class BookingService {
     }
   }
 
+  // async cancelOrder(req: bookingDto) {
+  //   try {
+  //     const cancel_booking = await this.bookingModel.updateOne(
+  //       { bookingId: req.bookingId },
+  //       {
+  //         $set: {
+  //           status: 'cancelled',
+  //         },
+  //       },
+  //     );
+  //     const cancel_alert = await this.orderAlertModel.updateMany(
+  //       { bookingId: req.bookingId },
+  //       {
+  //         $set: {
+  //           status: 'cancelled',
+  //         },
+  //       },
+  //     );
+  //     console.log(cancel_booking, cancel_alert);
+  //     if (cancel_booking.modifiedCount > 0) {
+  //       return {
+  //         statusCode: HttpStatus.OK,
+  //         message: 'Order Cancelled successfully',
+  //       };
+  //     } else {
+  //       return {
+  //         statusCode: HttpStatus.EXPECTATION_FAILED,
+  //         message: 'failed to cancel order',
+  //       };
+  //     }
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error.message,
+  //     };
+  //   }
+  // }
+
   async cancelOrder(req: bookingDto) {
     try {
+      const booking = await this.bookingModel.findOne({
+        bookingId: req.bookingId,
+      });
+      if (booking?.status == 'cancelled') {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'Booking already cancelled',
+        };
+      }
+      if (!booking) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Booking not found',
+        };
+      }
+
+      console.log('Booking found:', {
+        bookingId: booking.bookingId,
+        transactionId: booking.transactionId,
+        status: booking.status,
+      });
+
+      let refundResult;
+      const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
+
+      if (booking.transactionId && booking.transactionId !== 'NA') {
+        try {
+          console.log(
+            'Initiating refund for transactionId:',
+            booking.transactionId,
+          );
+
+          const paymentDetails = await this.razorpay.payments.fetch(
+            booking.transactionId,
+          );
+
+          console.log('Payment details:', {
+            status: paymentDetails.status,
+            method: paymentDetails.method,
+            amount: paymentDetails.amount,
+            captured: paymentDetails.captured,
+          });
+
+          if (paymentDetails.status !== 'captured') {
+            return {
+              statusCode: HttpStatus.BAD_REQUEST,
+              message: `Payment cannot be refunded. Current payment status: ${paymentDetails.status}`,
+            };
+          }
+
+          if (isTestMode && paymentDetails.method === 'upi') {
+            console.log(
+              'TEST MODE: UPI refund skipped (not supported via API in test mode)',
+            );
+            console.log(
+              'TEST MODE: To test refund, use Razorpay Dashboard → Issue Refund button',
+            );
+            refundResult = {
+              id: `test_refund_${Date.now()}`,
+              status: 'test_simulated',
+              amount: paymentDetails.amount,
+              method: 'upi',
+              note: 'Simulated in test mode — use dashboard to issue actual refund',
+            };
+          } else {
+            refundResult = await this.razorpay.payments.refund(
+              booking.transactionId,
+              {
+                amount: paymentDetails.amount,
+              },
+            );
+            console.log('Refund successful:', refundResult);
+          }
+        } catch (refundError) {
+          console.error(
+            'Razorpay refund error:',
+            JSON.stringify(refundError, null, 2),
+          );
+          return {
+            statusCode: HttpStatus.EXPECTATION_FAILED,
+            message: `Refund failed: ${refundError?.error?.description || refundError.message}`,
+            debug: refundError?.error || refundError.message,
+          };
+        }
+      } else {
+        console.log('No valid transactionId found, skipping refund');
+      }
+
       const cancel_booking = await this.bookingModel.updateOne(
         { bookingId: req.bookingId },
         {
           $set: {
             status: 'cancelled',
+            refundId: refundResult?.id || null,
+            refundStatus: refundResult?.status || null,
           },
         },
       );
-      const cancel_alert = await this.orderAlertModel.updateMany(
+
+      await this.orderAlertModel.updateMany(
         { bookingId: req.bookingId },
-        {
-          $set: {
-            status: 'cancelled',
-          },
-        },
+        { $set: { status: 'cancelled' } },
       );
-      console.log(cancel_booking, cancel_alert);
+
       if (cancel_booking.modifiedCount > 0) {
         return {
           statusCode: HttpStatus.OK,
-          message: 'Order Cancelled successfully',
+          message: isTestMode
+            ? 'Order cancelled successfully. Refund simulated in test mode — use Razorpay dashboard to issue actual refund.'
+            : 'Order cancelled and refund initiated successfully',
+          refundId: refundResult?.id || null,
+          refundStatus: refundResult?.status || null,
+          ...(isTestMode && { debug: refundResult }),
         };
       } else {
         return {
           statusCode: HttpStatus.EXPECTATION_FAILED,
-          message: 'failed to cancel order',
+          message: 'Failed to cancel order',
         };
       }
     } catch (error) {
+      console.error('cancelOrder error:', error);
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
