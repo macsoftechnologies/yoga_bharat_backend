@@ -74,7 +74,7 @@ export class ApptutorialController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  
   @Get('/list')
   async getAppTutoiral(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
