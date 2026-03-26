@@ -2239,6 +2239,7 @@ export class BookingService {
   // async addOrderAlerts(req: orderAlertDto) {
   //   try {
   //     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+
   //     const getOrderAlert = await this.orderAlertModel.aggregate([
   //       {
   //         $match: {
@@ -2246,10 +2247,9 @@ export class BookingService {
   //           createdAt: { $gte: tenMinutesAgo },
   //         },
   //       },
-  //       {
-  //         $sort: { createdAt: -1 },
-  //       },
+  //       { $sort: { createdAt: -1 } },
   //       { $limit: 1 },
+
   //       {
   //         $lookup: {
   //           from: 'bookings',
@@ -2259,6 +2259,7 @@ export class BookingService {
   //         },
   //       },
   //       { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+
   //       {
   //         $lookup: {
   //           from: 'roomsessions',
@@ -2270,6 +2271,7 @@ export class BookingService {
   //       {
   //         $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true },
   //       },
+
   //       {
   //         $lookup: {
   //           from: 'yogadetails',
@@ -2278,9 +2280,8 @@ export class BookingService {
   //           as: 'yogaId',
   //         },
   //       },
-  //       {
-  //         $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true },
-  //       },
+  //       { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+
   //       {
   //         $lookup: {
   //           from: 'users',
@@ -2289,39 +2290,39 @@ export class BookingService {
   //           as: 'clientId',
   //         },
   //       },
-  //       {
-  //         $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true },
-  //       },
+  //       { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
 
+  //       // ✅ NEW LOGIC STARTS HERE
   //       {
-  //       $lookup: {
-  //         from: 'passed_orders',
-  //         let: {
-  //           trainerId: '$trainerId',
-  //           bookingId: '$bookingId.bookingId',
-  //         },
-  //         pipeline: [
-  //           {
-  //             $match: {
-  //               $expr: {
-  //                 $and: [
-  //                   { $eq: ['$trainerId', '$$trainerId'] },
-  //                   { $eq: ['$bookingId', '$$bookingId'] },
-  //                 ],
+  //         $lookup: {
+  //           from: 'passedorders',
+  //           let: {
+  //             trainerId: '$trainerId',
+  //             bookingId: '$bookingId.bookingId',
+  //           },
+  //           pipeline: [
+  //             {
+  //               $match: {
+  //                 $expr: {
+  //                   $and: [
+  //                     { $eq: ['$trainerId', '$$trainerId'] },
+  //                     { $eq: ['$bookingId', '$$bookingId'] },
+  //                   ],
+  //                 },
   //               },
   //             },
-  //           },
-  //         ],
-  //         as: 'passedOrderCheck',
+  //           ],
+  //           as: 'passedOrderCheck',
+  //         },
   //       },
-  //     },
 
-  //     // ❌ If exists in passed_orders → remove
-  //     {
-  //       $match: {
-  //         passedOrderCheck: { $size: 0 },
+  //       // ❌ If exists in passed_orders → remove
+  //       {
+  //         $match: {
+  //           passedOrderCheck: { $size: 0 },
+  //         },
   //       },
-  //     },
+  //       // ✅ NEW LOGIC ENDS HERE
 
   //       {
   //         $project: {
@@ -2336,6 +2337,7 @@ export class BookingService {
   //         },
   //       },
   //     ]);
+
   //     return {
   //       status: HttpStatus.OK,
   //       message: 'Order Alert Details',
@@ -2349,120 +2351,220 @@ export class BookingService {
   //   }
   // }
 
-  async addOrderAlerts(req: orderAlertDto) {
-    try {
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+async addOrderAlerts(req: orderAlertDto) {
+  try {
+    const now = new Date();
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
 
-      const getOrderAlert = await this.orderAlertModel.aggregate([
-        {
-          $match: {
-            trainerId: req.trainerId,
-            createdAt: { $gte: tenMinutesAgo },
-          },
-        },
-        { $sort: { createdAt: -1 } },
-        { $limit: 1 },
+    const nowTotalSecondsIST =
+      nowIST.getUTCHours() * 3600 +
+      nowIST.getUTCMinutes() * 60 +
+      nowIST.getUTCSeconds();
 
-        {
-          $lookup: {
-            from: 'bookings',
-            localField: 'bookingId',
-            foreignField: 'bookingId',
-            as: 'bookingId',
-          },
-        },
-        { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+    const fiveMinInSeconds = 5 * 60;
 
-        {
-          $lookup: {
-            from: 'roomsessions',
-            localField: 'bookingId.bookingId',
-            foreignField: 'bookingId',
-            as: 'room_details',
-          },
-        },
-        {
-          $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true },
-        },
+    // ✅ Today's date as "Mar 26 2026" to match against stored string
+    // stored format: "Thu Mar 26 2026 00:00:00 GMT+0000 ..."
+    // substring from index 4 to 15 gives "Mar 26 2026"
+    const todayIST = nowIST.toUTCString(); // "Thu, 26 Mar 2026 16:40:23 GMT"
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthStr = months[nowIST.getUTCMonth()];
+    const dayStr = String(nowIST.getUTCDate()).padStart(2, ' ');
+    const yearStr = String(nowIST.getUTCFullYear());
 
-        {
-          $lookup: {
-            from: 'yogadetails',
-            localField: 'bookingId.yogaId',
-            foreignField: 'yogaId',
-            as: 'yogaId',
-          },
-        },
-        { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+    // This matches the stored string format: "Thu Mar 26 2026 ..."
+    //                                              ^4  ^8  ^11
+    const todayMatchStr = `${monthStr} ${nowIST.getUTCDate()} ${yearStr}`;
+    // e.g. "Mar 26 2026"
 
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'bookingId.clientId',
-            foreignField: 'userId',
-            as: 'clientId',
-          },
-        },
-        { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
+    console.log('todayMatchStr:', todayMatchStr);
+    console.log('nowTotalSecondsIST:', nowTotalSecondsIST, '→', `${nowIST.getUTCHours()}:${nowIST.getUTCMinutes()}:${nowIST.getUTCSeconds()}`);
+    console.log('window seconds:', nowTotalSecondsIST - fiveMinInSeconds, 'to', nowTotalSecondsIST + fiveMinInSeconds);
 
-        // ✅ NEW LOGIC STARTS HERE
-        {
-          $lookup: {
-            from: 'passedorders',
-            let: {
-              trainerId: '$trainerId',
-              bookingId: '$bookingId.bookingId',
-            },
-            pipeline: [
+    const getOrderAlert = await this.orderAlertModel.aggregate([
+      {
+        $match: {
+          trainerId: req.trainerId,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $limit: 1 },
+
+      // Lookup booking
+      {
+        $lookup: {
+          from: 'bookings',
+          localField: 'bookingId',
+          foreignField: 'bookingId',
+          as: 'bookingId',
+        },
+      },
+      { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+
+      // ✅ Fix: since scheduledDate is a string like "Thu Mar 26 2026 00:00:00 GMT+0000 ..."
+      // extract substring from index 4 (length 11) → "Mar 26 2026"
+      // and match against today's date string built in JS
+      {
+        $match: {
+          $expr: {
+            $eq: [
               {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: ['$trainerId', '$$trainerId'] },
-                      { $eq: ['$bookingId', '$$bookingId'] },
-                    ],
+                $substr: ['$bookingId.scheduledDate', 4, 11],
+              },
+              todayMatchStr, // e.g. "Mar 26 2026"
+            ],
+          },
+        },
+      },
+
+      // ✅ Parse time "HH:MM:SS" into total seconds
+      {
+        $addFields: {
+          bookingTotalSeconds: {
+            $add: [
+              {
+                $multiply: [
+                  {
+                    $toInt: {
+                      $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 0],
+                    },
                   },
+                  3600,
+                ],
+              },
+              {
+                $multiply: [
+                  {
+                    $toInt: {
+                      $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 1],
+                    },
+                  },
+                  60,
+                ],
+              },
+              {
+                $toInt: {
+                  $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 2],
                 },
               },
             ],
-            as: 'passedOrderCheck',
           },
         },
+      },
 
-        // ❌ If exists in passed_orders → remove
-        {
-          $match: {
-            passedOrderCheck: { $size: 0 },
+      // ✅ Filter: booking time must be within ±5 mins of now (IST)
+      {
+        $match: {
+          $expr: {
+            $and: [
+              {
+                $gte: [
+                  '$bookingTotalSeconds',
+                  nowTotalSecondsIST - fiveMinInSeconds,
+                ],
+              },
+              {
+                $lte: [
+                  '$bookingTotalSeconds',
+                  nowTotalSecondsIST + fiveMinInSeconds,
+                ],
+              },
+            ],
           },
         },
-        // ✅ NEW LOGIC ENDS HERE
+      },
 
-        {
-          $project: {
-            bookingId: '$bookingId',
-            yoga_details: '$yogaId',
-            client_details: '$clientId',
-            room_details: '$room_details',
-            status: 1,
-            alertId: 1,
-            createdAt: 1,
-            updatedAt: 1,
-          },
+      // Lookup room sessions
+      {
+        $lookup: {
+          from: 'roomsessions',
+          localField: 'bookingId.bookingId',
+          foreignField: 'bookingId',
+          as: 'room_details',
         },
-      ]);
+      },
+      { $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true } },
 
-      return {
-        status: HttpStatus.OK,
-        message: 'Order Alert Details',
-        data: getOrderAlert[0] || {},
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error.message,
-      };
-    }
+      // Lookup yoga details
+      {
+        $lookup: {
+          from: 'yogadetails',
+          localField: 'bookingId.yogaId',
+          foreignField: 'yogaId',
+          as: 'yogaId',
+        },
+      },
+      { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+
+      // Lookup client/user details
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'bookingId.clientId',
+          foreignField: 'userId',
+          as: 'clientId',
+        },
+      },
+      { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
+
+      // Passed order check
+      {
+        $lookup: {
+          from: 'passedorders',
+          let: {
+            trainerId: '$trainerId',
+            bookingId: '$bookingId.bookingId',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$trainerId', '$$trainerId'] },
+                    { $eq: ['$bookingId', '$$bookingId'] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: 'passedOrderCheck',
+        },
+      },
+
+      // Exclude if already in passed orders
+      {
+        $match: {
+          passedOrderCheck: { $size: 0 },
+        },
+      },
+
+      {
+        $project: {
+          bookingId: '$bookingId',
+          yoga_details: '$yogaId',
+          client_details: '$clientId',
+          room_details: '$room_details',
+          status: 1,
+          alertId: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+    ]);
+
+    return {
+      status: HttpStatus.OK,
+      message: 'Order Alert Details',
+      data: getOrderAlert[0] || {},
+    };
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error.message,
+    };
   }
+}
 
   // async cancelOrder(req: bookingDto) {
   //   try {
