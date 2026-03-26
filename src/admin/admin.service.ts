@@ -80,7 +80,8 @@ export class AdminService {
         };
       }
 
-      const generatedOtp = Math.floor(1000 + Math.random() * 900000);
+      // const generatedOtp = Math.floor(1000 + Math.random() * 900000);
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000);
 
       const updateOTP = await this.adminModel.updateOne(
         { adminId: findAdmin.adminId },
