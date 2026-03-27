@@ -79,12 +79,153 @@ export class BookingService {
 
     return `${hours}:${minutes}:${seconds}`;
   }
+  // test mode createbooking
+  // async createBooking(req: bookingDto) {
+  //   try {
+  //     const paymentDetails = await this.razorpay.payments.fetch(
+  //       req.transactionId,
+  //     );
 
+  //     console.log('Payment fetch result:', {
+  //       id: paymentDetails.id,
+  //       status: paymentDetails.status,
+  //       method: paymentDetails.method,
+  //       amount: paymentDetails.amount,
+  //       currency: paymentDetails.currency,
+  //     });
+
+  //     const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
+
+  //     if (paymentDetails.status === 'authorized') {
+  //       if (isTestMode && paymentDetails.method === 'upi') {
+  //         // ✅ Test mode UPI: force capture via dashboard-simulated API call
+  //         // Razorpay test mode UPI requires capturing before refund is possible
+  //         try {
+  //           const capturedPayment = await this.razorpay.payments.capture(
+  //             req.transactionId,
+  //             Number(paymentDetails.amount),
+  //             paymentDetails.currency || 'INR',
+  //           );
+  //           console.log('Test UPI capture result:', capturedPayment.status);
+  //         } catch (captureErr) {
+  //           // ⚠️ If capture fails in test mode (UPI limitation), proceed anyway
+  //           // In live mode this won't happen — UPI is auto-captured
+  //           console.warn(
+  //             'Test mode UPI capture skipped (API limitation):',
+  //             captureErr?.error?.description,
+  //           );
+  //         }
+  //       } else {
+  //         // ✅ Live mode or non-UPI — must capture successfully
+  //         const capturedPayment = await this.razorpay.payments.capture(
+  //           req.transactionId,
+  //           Number(paymentDetails.amount),
+  //           paymentDetails.currency || 'INR',
+  //         );
+
+  //         if (capturedPayment.status !== 'captured') {
+  //           return {
+  //             statusCode: HttpStatus.PAYMENT_REQUIRED,
+  //             message: 'Payment capture failed.',
+  //           };
+  //         }
+  //       }
+  //     } else if (paymentDetails.status !== 'captured') {
+  //       return {
+  //         statusCode: HttpStatus.PAYMENT_REQUIRED,
+  //         message: `Payment is in '${paymentDetails.status}' status. Cannot create booking.`,
+  //       };
+  //     }
+
+  //     // ✅ Prevent duplicate booking
+  //     const existingBooking = await this.bookingModel.findOne({
+  //       transactionId: req.transactionId,
+  //     });
+  //     if (existingBooking) {
+  //       return {
+  //         statusCode: HttpStatus.CONFLICT,
+  //         message: 'A booking with this transaction ID already exists.',
+  //         data: existingBooking,
+  //       };
+  //     }
+
+  //     const trainers = await this.userModel.find({
+  //       professional_details: req.yogaId,
+  //     });
+  //     const allTrainerIds = trainers.map((trainer) => trainer.userId);
+
+  //     const bookingDate = new Date(req.scheduledDate);
+
+  //     const availableTrainerIds = await this.filterAvailableTrainers(
+  //       allTrainerIds,
+  //       bookingDate,
+  //     );
+  //     const sAt = new Date(req.scheduledDate);
+  //     const formattedTime = this.formatTimeToHHMMSS(req.time);
+  //     const addbooking = await this.bookingModel.create({
+  //       bookingType: req.bookingType,
+  //       languageId: req.languageId,
+  //       yogaId: req.yogaId,
+  //       clientId: req.clientId,
+  //       scheduledDate: sAt,
+  //       time: formattedTime,
+  //       package_details: req.package_details,
+  //       sessionId: req.sessionId,
+  //       transactionId: req.transactionId,
+  //       trainerIds: availableTrainerIds,
+  //     });
+  //     if (addbooking) {
+  //       return {
+  //         statusCode: HttpStatus.OK,
+  //         message: 'Booking created successfully.',
+  //         data: addbooking,
+  //       };
+  //       //   }
+  //       // if (addbooking && bookingTrainers.length) {
+  //       //   await this.sendBookingNotificationToTrainers(
+  //       //     bookingTrainers,
+  //       //     addbooking,
+  //       //   );
+  //     } else {
+  //       return {
+  //         statusCode: HttpStatus.EXPECTATION_FAILED,
+  //         message: 'Failed to create booking.',
+  //       };
+  //     }
+  //   } catch (error) {
+  //     console.error('createBooking error:', JSON.stringify(error, null, 2));
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error?.message || JSON.stringify(error) || 'Unknown error',
+  //     };
+  //   }
+  // }
+
+  // live mode createbooking
   async createBooking(req: bookingDto) {
     try {
-      const paymentDetails = await this.razorpay.payments.fetch(
-        req.transactionId,
-      );
+      const transactionId = req.transactionId?.trim();
+
+      if (!transactionId) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'transactionId is required.',
+        };
+      }
+
+      // ✅ Prevent duplicate booking FIRST before hitting Razorpay
+      const existingBooking = await this.bookingModel.findOne({
+        transactionId,
+      });
+      if (existingBooking) {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'A booking with this transaction ID already exists.',
+          data: existingBooking,
+        };
+      }
+
+      const paymentDetails = await this.razorpay.payments.fetch(transactionId);
 
       console.log('Payment fetch result:', {
         id: paymentDetails.id,
@@ -97,55 +238,39 @@ export class BookingService {
       const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
 
       if (paymentDetails.status === 'authorized') {
-        if (isTestMode && paymentDetails.method === 'upi') {
-          // ✅ Test mode UPI: force capture via dashboard-simulated API call
-          // Razorpay test mode UPI requires capturing before refund is possible
-          try {
-            const capturedPayment = await this.razorpay.payments.capture(
-              req.transactionId,
-              Number(paymentDetails.amount),
-              paymentDetails.currency || 'INR',
-            );
-            console.log('Test UPI capture result:', capturedPayment.status);
-          } catch (captureErr) {
-            // ⚠️ If capture fails in test mode (UPI limitation), proceed anyway
-            // In live mode this won't happen — UPI is auto-captured
-            console.warn(
-              'Test mode UPI capture skipped (API limitation):',
-              captureErr?.error?.description,
-            );
-          }
+        if (isTestMode) {
+          // ✅ Test mode — skip capture, proceed directly
+          console.log('TEST MODE: Skipping capture, proceeding with booking.');
         } else {
-          // ✅ Live mode or non-UPI — must capture successfully
+          // ✅ Live mode — must capture explicitly
+          console.log('LIVE MODE: Capturing payment...');
           const capturedPayment = await this.razorpay.payments.capture(
-            req.transactionId,
-            Number(paymentDetails.amount),
+            transactionId,
+            Number(paymentDetails.amount), // exact paise amount
             paymentDetails.currency || 'INR',
           );
+
+          console.log('Capture result:', {
+            id: capturedPayment.id,
+            status: capturedPayment.status,
+            amount: capturedPayment.amount,
+          });
 
           if (capturedPayment.status !== 'captured') {
             return {
               statusCode: HttpStatus.PAYMENT_REQUIRED,
-              message: 'Payment capture failed.',
+              message: `Payment capture failed. Status: ${capturedPayment.status}`,
             };
           }
         }
-      } else if (paymentDetails.status !== 'captured') {
+      } else if (paymentDetails.status === 'captured') {
+        // ✅ Already captured (e.g. auto-captured by Razorpay) — proceed
+        console.log('Payment already captured, proceeding with booking.');
+      } else {
+        // ❌ failed / refunded / any other status
         return {
           statusCode: HttpStatus.PAYMENT_REQUIRED,
           message: `Payment is in '${paymentDetails.status}' status. Cannot create booking.`,
-        };
-      }
-
-      // ✅ Prevent duplicate booking
-      const existingBooking = await this.bookingModel.findOne({
-        transactionId: req.transactionId,
-      });
-      if (existingBooking) {
-        return {
-          statusCode: HttpStatus.CONFLICT,
-          message: 'A booking with this transaction ID already exists.',
-          data: existingBooking,
         };
       }
 
@@ -153,15 +278,15 @@ export class BookingService {
         professional_details: req.yogaId,
       });
       const allTrainerIds = trainers.map((trainer) => trainer.userId);
-
       const bookingDate = new Date(req.scheduledDate);
-
       const availableTrainerIds = await this.filterAvailableTrainers(
         allTrainerIds,
         bookingDate,
       );
+
       const sAt = new Date(req.scheduledDate);
       const formattedTime = this.formatTimeToHHMMSS(req.time);
+
       const addbooking = await this.bookingModel.create({
         bookingType: req.bookingType,
         languageId: req.languageId,
@@ -171,21 +296,17 @@ export class BookingService {
         time: formattedTime,
         package_details: req.package_details,
         sessionId: req.sessionId,
-        transactionId: req.transactionId,
+        transactionId,
+        paymentStatus: 'captured',
         trainerIds: availableTrainerIds,
       });
+
       if (addbooking) {
         return {
           statusCode: HttpStatus.OK,
-          message: 'Booking created successfully.',
+          message: 'Booking created and payment captured successfully.',
           data: addbooking,
         };
-        //   }
-        // if (addbooking && bookingTrainers.length) {
-        //   await this.sendBookingNotificationToTrainers(
-        //     bookingTrainers,
-        //     addbooking,
-        //   );
       } else {
         return {
           statusCode: HttpStatus.EXPECTATION_FAILED,
@@ -2351,252 +2472,406 @@ export class BookingService {
   //   }
   // }
 
-async addOrderAlerts(req: orderAlertDto) {
-  try {
-    const now = new Date();
-    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-    const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+  async addOrderAlerts(req: orderAlertDto) {
+    try {
+      const now = new Date();
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
 
-    const nowTotalSecondsIST =
-      nowIST.getUTCHours() * 3600 +
-      nowIST.getUTCMinutes() * 60 +
-      nowIST.getUTCSeconds();
+      const nowTotalSecondsIST =
+        nowIST.getUTCHours() * 3600 +
+        nowIST.getUTCMinutes() * 60 +
+        nowIST.getUTCSeconds();
 
-    const fiveMinInSeconds = 5 * 60;
+      const fiveMinInSeconds = 5 * 60;
 
-    // ✅ Today's date as "Mar 26 2026" to match against stored string
-    // stored format: "Thu Mar 26 2026 00:00:00 GMT+0000 ..."
-    // substring from index 4 to 15 gives "Mar 26 2026"
-    const todayIST = nowIST.toUTCString(); // "Thu, 26 Mar 2026 16:40:23 GMT"
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const monthStr = months[nowIST.getUTCMonth()];
-    const dayStr = String(nowIST.getUTCDate()).padStart(2, ' ');
-    const yearStr = String(nowIST.getUTCFullYear());
+      // ✅ Today's date as "Mar 26 2026" to match against stored string
+      // stored format: "Thu Mar 26 2026 00:00:00 GMT+0000 ..."
+      // substring from index 4 to 15 gives "Mar 26 2026"
+      const todayIST = nowIST.toUTCString(); // "Thu, 26 Mar 2026 16:40:23 GMT"
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      const monthStr = months[nowIST.getUTCMonth()];
+      const dayStr = String(nowIST.getUTCDate()).padStart(2, ' ');
+      const yearStr = String(nowIST.getUTCFullYear());
 
-    // This matches the stored string format: "Thu Mar 26 2026 ..."
-    //                                              ^4  ^8  ^11
-    const todayMatchStr = `${monthStr} ${nowIST.getUTCDate()} ${yearStr}`;
-    // e.g. "Mar 26 2026"
+      // This matches the stored string format: "Thu Mar 26 2026 ..."
+      //                                              ^4  ^8  ^11
+      const todayMatchStr = `${monthStr} ${nowIST.getUTCDate()} ${yearStr}`;
+      // e.g. "Mar 26 2026"
 
-    console.log('todayMatchStr:', todayMatchStr);
-    console.log('nowTotalSecondsIST:', nowTotalSecondsIST, '→', `${nowIST.getUTCHours()}:${nowIST.getUTCMinutes()}:${nowIST.getUTCSeconds()}`);
-    console.log('window seconds:', nowTotalSecondsIST - fiveMinInSeconds, 'to', nowTotalSecondsIST + fiveMinInSeconds);
+      console.log('todayMatchStr:', todayMatchStr);
+      console.log(
+        'nowTotalSecondsIST:',
+        nowTotalSecondsIST,
+        '→',
+        `${nowIST.getUTCHours()}:${nowIST.getUTCMinutes()}:${nowIST.getUTCSeconds()}`,
+      );
+      console.log(
+        'window seconds:',
+        nowTotalSecondsIST - fiveMinInSeconds,
+        'to',
+        nowTotalSecondsIST + fiveMinInSeconds,
+      );
 
-    const getOrderAlert = await this.orderAlertModel.aggregate([
-      {
-        $match: {
-          trainerId: req.trainerId,
-        },
-      },
-      { $sort: { createdAt: -1 } },
-      { $limit: 1 },
-
-      // Lookup booking
-      {
-        $lookup: {
-          from: 'bookings',
-          localField: 'bookingId',
-          foreignField: 'bookingId',
-          as: 'bookingId',
-        },
-      },
-      { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
-
-      // ✅ Fix: since scheduledDate is a string like "Thu Mar 26 2026 00:00:00 GMT+0000 ..."
-      // extract substring from index 4 (length 11) → "Mar 26 2026"
-      // and match against today's date string built in JS
-      {
-        $match: {
-          $expr: {
-            $eq: [
-              {
-                $substr: ['$bookingId.scheduledDate', 4, 11],
-              },
-              todayMatchStr, // e.g. "Mar 26 2026"
-            ],
+      const getOrderAlert = await this.orderAlertModel.aggregate([
+        {
+          $match: {
+            trainerId: req.trainerId,
           },
         },
-      },
+        { $sort: { createdAt: -1 } },
+        { $limit: 1 },
 
-      // ✅ Parse time "HH:MM:SS" into total seconds
-      {
-        $addFields: {
-          bookingTotalSeconds: {
-            $add: [
-              {
-                $multiply: [
-                  {
-                    $toInt: {
-                      $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 0],
-                    },
-                  },
-                  3600,
-                ],
-              },
-              {
-                $multiply: [
-                  {
-                    $toInt: {
-                      $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 1],
-                    },
-                  },
-                  60,
-                ],
-              },
-              {
-                $toInt: {
-                  $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 2],
+        // Lookup booking
+        {
+          $lookup: {
+            from: 'bookings',
+            localField: 'bookingId',
+            foreignField: 'bookingId',
+            as: 'bookingId',
+          },
+        },
+        { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+
+        // ✅ Fix: since scheduledDate is a string like "Thu Mar 26 2026 00:00:00 GMT+0000 ..."
+        // extract substring from index 4 (length 11) → "Mar 26 2026"
+        // and match against today's date string built in JS
+        {
+          $match: {
+            $expr: {
+              $eq: [
+                {
+                  $substr: ['$bookingId.scheduledDate', 4, 11],
                 },
-              },
-            ],
+                todayMatchStr, // e.g. "Mar 26 2026"
+              ],
+            },
           },
         },
-      },
 
-      // ✅ Filter: booking time must be within ±5 mins of now (IST)
-      {
-        $match: {
-          $expr: {
-            $and: [
-              {
-                $gte: [
-                  '$bookingTotalSeconds',
-                  nowTotalSecondsIST - fiveMinInSeconds,
-                ],
-              },
-              {
-                $lte: [
-                  '$bookingTotalSeconds',
-                  nowTotalSecondsIST + fiveMinInSeconds,
-                ],
-              },
-            ],
-          },
-        },
-      },
-
-      // Lookup room sessions
-      {
-        $lookup: {
-          from: 'roomsessions',
-          localField: 'bookingId.bookingId',
-          foreignField: 'bookingId',
-          as: 'room_details',
-        },
-      },
-      { $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true } },
-
-      // Lookup yoga details
-      {
-        $lookup: {
-          from: 'yogadetails',
-          localField: 'bookingId.yogaId',
-          foreignField: 'yogaId',
-          as: 'yogaId',
-        },
-      },
-      { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
-
-      // Lookup client/user details
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'bookingId.clientId',
-          foreignField: 'userId',
-          as: 'clientId',
-        },
-      },
-      { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
-
-      // Passed order check
-      {
-        $lookup: {
-          from: 'passedorders',
-          let: {
-            trainerId: '$trainerId',
-            bookingId: '$bookingId.bookingId',
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$trainerId', '$$trainerId'] },
-                    { $eq: ['$bookingId', '$$bookingId'] },
+        // ✅ Parse time "HH:MM:SS" into total seconds
+        {
+          $addFields: {
+            bookingTotalSeconds: {
+              $add: [
+                {
+                  $multiply: [
+                    {
+                      $toInt: {
+                        $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 0],
+                      },
+                    },
+                    3600,
                   ],
                 },
-              },
+                {
+                  $multiply: [
+                    {
+                      $toInt: {
+                        $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 1],
+                      },
+                    },
+                    60,
+                  ],
+                },
+                {
+                  $toInt: {
+                    $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 2],
+                  },
+                },
+              ],
             },
-          ],
-          as: 'passedOrderCheck',
+          },
         },
-      },
 
-      // Exclude if already in passed orders
-      {
-        $match: {
-          passedOrderCheck: { $size: 0 },
+        // ✅ Filter: booking time must be within ±5 mins of now (IST)
+        {
+          $match: {
+            $expr: {
+              $and: [
+                {
+                  $gte: [
+                    '$bookingTotalSeconds',
+                    nowTotalSecondsIST - fiveMinInSeconds,
+                  ],
+                },
+                {
+                  $lte: [
+                    '$bookingTotalSeconds',
+                    nowTotalSecondsIST + fiveMinInSeconds,
+                  ],
+                },
+              ],
+            },
+          },
         },
-      },
 
-      {
-        $project: {
-          bookingId: '$bookingId',
-          yoga_details: '$yogaId',
-          client_details: '$clientId',
-          room_details: '$room_details',
-          status: 1,
-          alertId: 1,
-          createdAt: 1,
-          updatedAt: 1,
+        // Lookup room sessions
+        {
+          $lookup: {
+            from: 'roomsessions',
+            localField: 'bookingId.bookingId',
+            foreignField: 'bookingId',
+            as: 'room_details',
+          },
         },
-      },
-    ]);
+        {
+          $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true },
+        },
 
-    return {
-      status: HttpStatus.OK,
-      message: 'Order Alert Details',
-      data: getOrderAlert[0] || {},
-    };
-  } catch (error) {
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: error.message,
-    };
+        // Lookup yoga details
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'bookingId.yogaId',
+            foreignField: 'yogaId',
+            as: 'yogaId',
+          },
+        },
+        { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+
+        // Lookup client/user details
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'bookingId.clientId',
+            foreignField: 'userId',
+            as: 'clientId',
+          },
+        },
+        { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
+
+        // Passed order check
+        {
+          $lookup: {
+            from: 'passedorders',
+            let: {
+              trainerId: '$trainerId',
+              bookingId: '$bookingId.bookingId',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$trainerId', '$$trainerId'] },
+                      { $eq: ['$bookingId', '$$bookingId'] },
+                    ],
+                  },
+                },
+              },
+            ],
+            as: 'passedOrderCheck',
+          },
+        },
+
+        // Exclude if already in passed orders
+        {
+          $match: {
+            passedOrderCheck: { $size: 0 },
+          },
+        },
+
+        {
+          $project: {
+            bookingId: '$bookingId',
+            yoga_details: '$yogaId',
+            client_details: '$clientId',
+            room_details: '$room_details',
+            status: 1,
+            alertId: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        },
+      ]);
+
+      return {
+        status: HttpStatus.OK,
+        message: 'Order Alert Details',
+        data: getOrderAlert[0] || {},
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
   }
-}
 
+  // cancel order for test mode
   // async cancelOrder(req: bookingDto) {
   //   try {
+  //     const booking = await this.bookingModel.findOne({
+  //       bookingId: req.bookingId,
+  //     });
+
+  //     if (!booking) {
+  //       return {
+  //         statusCode: HttpStatus.NOT_FOUND,
+  //         message: 'Booking not found',
+  //       };
+  //     }
+
+  //     if (booking.status === 'cancelled') {
+  //       return {
+  //         statusCode: HttpStatus.CONFLICT,
+  //         message: 'Booking already cancelled',
+  //       };
+  //     }
+
+  //     let refundResult;
+  //     const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
+
+  //     if (booking.transactionId && booking.transactionId !== 'NA') {
+  //       try {
+  //         const paymentDetails = await this.razorpay.payments.fetch(
+  //           booking.transactionId,
+  //         );
+
+  //         console.log('Payment status for refund:', {
+  //           status: paymentDetails.status,
+  //           method: paymentDetails.method,
+  //           amount: paymentDetails.amount,
+  //         });
+
+  //         // ✅ Case 1: Payment is still authorized (never captured)
+  //         // Cannot refund — must cancel/void it differently
+  //         if (paymentDetails.status === 'authorized') {
+  //           if (isTestMode) {
+  //             // In test mode — simulate refund, skip API call
+  //             console.log(
+  //               'TEST MODE: Payment still authorized, simulating void/refund',
+  //             );
+  //             refundResult = {
+  //               id: `test_void_${Date.now()}`,
+  //               status: 'test_simulated',
+  //               amount: paymentDetails.amount,
+  //               note: 'Authorized payment voided in test mode',
+  //             };
+  //           } else {
+  //             // In live mode — UPI authorized payments auto-expire after 5 days
+  //             // For cards, you can attempt refund on authorized payment
+  //             try {
+  //               refundResult = await this.razorpay.payments.refund(
+  //                 booking.transactionId,
+  //                 { amount: Number(paymentDetails.amount) },
+  //               );
+  //             } catch (voidErr) {
+  //               // If refund on authorized fails, just cancel the booking
+  //               console.warn(
+  //                 'Refund on authorized payment failed:',
+  //                 voidErr?.error?.description,
+  //               );
+  //               refundResult = {
+  //                 id: null,
+  //                 status: 'void_failed',
+  //                 note: 'Payment will auto-expire',
+  //               };
+  //             }
+  //           }
+  //         }
+
+  //         // ✅ Case 2: Payment is captured — normal refund flow
+  //         else if (paymentDetails.status === 'captured') {
+  //           if (isTestMode && paymentDetails.method === 'upi') {
+  //             // Test mode UPI captured — simulate refund
+  //             console.log(
+  //               'TEST MODE: UPI captured payment - simulating refund',
+  //             );
+  //             refundResult = {
+  //               id: `test_refund_${Date.now()}`,
+  //               status: 'test_simulated',
+  //               amount: paymentDetails.amount,
+  //               method: 'upi',
+  //               note: 'Simulated in test mode — use Razorpay dashboard to issue actual refund',
+  //             };
+  //           } else {
+  //             // ✅ Live mode or non-UPI test — actual refund
+  //             refundResult = await this.razorpay.payments.refund(
+  //               booking.transactionId,
+  //               { amount: Number(paymentDetails.amount) },
+  //             );
+  //             console.log('Refund successful:', refundResult);
+  //           }
+  //         }
+
+  //         // ✅ Case 3: Already refunded
+  //         else if (paymentDetails.status === 'refunded') {
+  //           console.log('Payment already refunded, just cancelling booking');
+  //           refundResult = { id: null, status: 'already_refunded' };
+  //         }
+
+  //         // ✅ Case 4: Failed/other status
+  //         else {
+  //           console.log(
+  //             `Payment in '${paymentDetails.status}' status, skipping refund`,
+  //           );
+  //           refundResult = { id: null, status: paymentDetails.status };
+  //         }
+  //       } catch (refundError) {
+  //         console.error(
+  //           'Razorpay refund error:',
+  //           JSON.stringify(refundError, null, 2),
+  //         );
+  //         return {
+  //           statusCode: HttpStatus.EXPECTATION_FAILED,
+  //           message: `Refund failed: ${refundError?.error?.description || refundError.message}`,
+  //           debug: refundError?.error || refundError.message,
+  //         };
+  //       }
+  //     } else {
+  //       console.log('No valid transactionId found, skipping refund');
+  //     }
+
+  //     // ✅ Cancel the booking regardless of refund outcome
   //     const cancel_booking = await this.bookingModel.updateOne(
   //       { bookingId: req.bookingId },
   //       {
   //         $set: {
   //           status: 'cancelled',
+  //           refundId: refundResult?.id || null,
+  //           refundStatus: refundResult?.status || null,
   //         },
   //       },
   //     );
-  //     const cancel_alert = await this.orderAlertModel.updateMany(
+
+  //     await this.orderAlertModel.updateMany(
   //       { bookingId: req.bookingId },
-  //       {
-  //         $set: {
-  //           status: 'cancelled',
-  //         },
-  //       },
+  //       { $set: { status: 'cancelled' } },
   //     );
-  //     console.log(cancel_booking, cancel_alert);
+
   //     if (cancel_booking.modifiedCount > 0) {
   //       return {
   //         statusCode: HttpStatus.OK,
-  //         message: 'Order Cancelled successfully',
+  //         message: isTestMode
+  //           ? 'Order cancelled. Refund simulated in test mode — use Razorpay dashboard for actual refund.'
+  //           : 'Order cancelled and refund initiated successfully.',
+  //         refundId: refundResult?.id || null,
+  //         refundStatus: refundResult?.status || null,
+  //         ...(isTestMode && { debug: refundResult }),
   //       };
   //     } else {
   //       return {
   //         statusCode: HttpStatus.EXPECTATION_FAILED,
-  //         message: 'failed to cancel order',
+  //         message: 'Failed to cancel order',
   //       };
   //     }
   //   } catch (error) {
+  //     console.error('cancelOrder error:', error);
   //     return {
   //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
   //       message: error.message,
@@ -2604,6 +2879,7 @@ async addOrderAlerts(req: orderAlertDto) {
   //   }
   // }
 
+  // cancel order for live mode
   async cancelOrder(req: bookingDto) {
     try {
       const booking = await this.bookingModel.findOne({
@@ -2633,83 +2909,53 @@ async addOrderAlerts(req: orderAlertDto) {
             booking.transactionId,
           );
 
-          console.log('Payment status for refund:', {
+          console.log('Payment status for cancel:', {
             status: paymentDetails.status,
             method: paymentDetails.method,
             amount: paymentDetails.amount,
+            isTestMode,
           });
 
-          // ✅ Case 1: Payment is still authorized (never captured)
-          // Cannot refund — must cancel/void it differently
-          if (paymentDetails.status === 'authorized') {
-            if (isTestMode) {
-              // In test mode — simulate refund, skip API call
-              console.log(
-                'TEST MODE: Payment still authorized, simulating void/refund',
-              );
-              refundResult = {
-                id: `test_void_${Date.now()}`,
-                status: 'test_simulated',
-                amount: paymentDetails.amount,
-                note: 'Authorized payment voided in test mode',
-              };
-            } else {
-              // In live mode — UPI authorized payments auto-expire after 5 days
-              // For cards, you can attempt refund on authorized payment
-              try {
-                refundResult = await this.razorpay.payments.refund(
-                  booking.transactionId,
-                  { amount: Number(paymentDetails.amount) },
-                );
-              } catch (voidErr) {
-                // If refund on authorized fails, just cancel the booking
-                console.warn(
-                  'Refund on authorized payment failed:',
-                  voidErr?.error?.description,
-                );
-                refundResult = {
-                  id: null,
-                  status: 'void_failed',
-                  note: 'Payment will auto-expire',
-                };
-              }
-            }
-          }
-
-          // ✅ Case 2: Payment is captured — normal refund flow
-          else if (paymentDetails.status === 'captured') {
+          if (paymentDetails.status === 'captured') {
             if (isTestMode && paymentDetails.method === 'upi') {
-              // Test mode UPI captured — simulate refund
-              console.log(
-                'TEST MODE: UPI captured payment - simulating refund',
-              );
+              // ✅ Test mode UPI — simulate refund
+              console.log('TEST MODE UPI: Simulating refund');
               refundResult = {
                 id: `test_refund_${Date.now()}`,
                 status: 'test_simulated',
                 amount: paymentDetails.amount,
-                method: 'upi',
-                note: 'Simulated in test mode — use Razorpay dashboard to issue actual refund',
+                note: 'Use Razorpay dashboard to issue actual refund in test mode',
               };
             } else {
-              // ✅ Live mode or non-UPI test — actual refund
+              // ✅ Live mode — real refund
+              console.log('LIVE MODE: Initiating real refund...');
               refundResult = await this.razorpay.payments.refund(
                 booking.transactionId,
                 { amount: Number(paymentDetails.amount) },
               );
-              console.log('Refund successful:', refundResult);
+              console.log('Refund successful:', {
+                id: refundResult.id,
+                status: refundResult.status,
+                amount: refundResult.amount,
+              });
             }
-          }
-
-          // ✅ Case 3: Already refunded
-          else if (paymentDetails.status === 'refunded') {
-            console.log('Payment already refunded, just cancelling booking');
-            refundResult = { id: null, status: 'already_refunded' };
-          }
-
-          // ✅ Case 4: Failed/other status
-          else {
+          } else if (paymentDetails.status === 'authorized') {
+            // ✅ Payment was never captured — nothing to refund
+            // In live mode authorized payments auto-expire after 5 days
             console.log(
-              `Payment in '${paymentDetails.status}' status, skipping refund`,
+              'Payment is authorized (not captured) — no refund needed, will auto-expire.',
+            );
+            refundResult = {
+              id: null,
+              status: 'authorized_not_captured',
+              note: 'Payment was never captured, will auto-expire in 5 days',
+            };
+          } else if (paymentDetails.status === 'refunded') {
+            console.log('Payment already refunded.');
+            refundResult = { id: null, status: 'already_refunded' };
+          } else {
+            console.log(
+              `Payment in '${paymentDetails.status}' — skipping refund.`,
             );
             refundResult = { id: null, status: paymentDetails.status };
           }
@@ -2725,10 +2971,10 @@ async addOrderAlerts(req: orderAlertDto) {
           };
         }
       } else {
-        console.log('No valid transactionId found, skipping refund');
+        console.log('No valid transactionId — skipping refund.');
       }
 
-      // ✅ Cancel the booking regardless of refund outcome
+      // ✅ Always cancel the booking regardless of refund outcome
       const cancel_booking = await this.bookingModel.updateOne(
         { bookingId: req.bookingId },
         {
@@ -2748,12 +2994,9 @@ async addOrderAlerts(req: orderAlertDto) {
       if (cancel_booking.modifiedCount > 0) {
         return {
           statusCode: HttpStatus.OK,
-          message: isTestMode
-            ? 'Order cancelled. Refund simulated in test mode — use Razorpay dashboard for actual refund.'
-            : 'Order cancelled and refund initiated successfully.',
+          message: 'Order cancelled and refund initiated successfully.',
           refundId: refundResult?.id || null,
           refundStatus: refundResult?.status || null,
-          ...(isTestMode && { debug: refundResult }),
         };
       } else {
         return {
