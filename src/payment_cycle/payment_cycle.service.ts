@@ -12,7 +12,8 @@ import { PaymentCycle } from './schema/payment_cycle.schema';
 import { Earning } from 'src/booking/schema/earnings.scheam';
 import { User } from 'src/users/schema/user.schema';
 import { RazorpayService } from 'src/auth/razorpay.service';
-
+import { YogaDetails } from 'src/yoga/schema/yoga_details.schema';
+import { CycleWithEarningsResponse, EnrichedEarning } from './dto/payment_cycle.dto';
 
 // Pricing model:
 //   client_price  = ₹600  → client pays
@@ -38,6 +39,9 @@ export class PaymentCyclesService {
 
     @InjectModel(User.name)
     private readonly userModel: Model<User>,
+
+    @InjectModel(YogaDetails.name)
+    private readonly yogaModel: Model<YogaDetails>,
 
     private readonly razorpayService: RazorpayService,
   ) {}
@@ -247,19 +251,37 @@ export class PaymentCyclesService {
   // ═══════════════════════════════════════════════════════
   // ADMIN — Get cycle + its earning records
   // ═══════════════════════════════════════════════════════
-  async getCycleWithEarnings(cycleId: string) {
+  async getCycleWithEarnings(cycleId: string): Promise<CycleWithEarningsResponse> {
     const cycle = await this.getCycleById(cycleId);
     const earnings = await this.earningModel
       .find({ paymentCycleId: cycle.data.cycleId })
       .sort({ date: 1 })
       .lean();
     // return { cycle, earnings, totalSessions: earnings.length };
+    const enrichedEarnings = await Promise.all(
+    earnings.map(async (earning) => {
+      const [trainer, client, yoga] = await Promise.all([
+        this.userModel.findOne({ userId: earning.trainerId }).select('name').lean(),
+        this.userModel.findOne({ userId: earning.clientId }).select('name').lean(),
+        this.yogaModel.findOne({ yogaId: earning.yogaId }).select('yoga_name trainer_price client_price').lean(),
+      ]);
+
+      return {
+        ...earning,
+        trainerName: trainer?.name ?? null,
+        clientName: client?.name ?? null,
+        yogaName: yoga?.yoga_name ?? null,
+        clientPrice: yoga?.client_price ?? null,
+        trainerPrice: yoga?.trainer_price ?? null,
+      } as unknown as EnrichedEarning;
+    })
+  );
     return {
       statusCode: HttpStatus.OK,
       message: "Details of Cycle With Earnings",
       totalSessions: earnings.length,
       data: cycle,
-      earnings
+      earnings: enrichedEarnings
     }
   }
 

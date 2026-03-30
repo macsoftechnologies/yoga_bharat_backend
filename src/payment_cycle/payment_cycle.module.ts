@@ -6,6 +6,7 @@ import { Earning, earningSchema } from 'src/booking/schema/earnings.scheam';
 import { User, userSchema } from 'src/users/schema/user.schema';
 import { PaymentCyclesService } from './payment_cycle.service';
 import { RazorpayService } from 'src/auth/razorpay.service';
+import { YogaDetails, yogaDetailsSchema } from 'src/yoga/schema/yoga_details.schema';
 
 
 @Module({
@@ -14,6 +15,7 @@ import { RazorpayService } from 'src/auth/razorpay.service';
       { name: PaymentCycle.name, schema: paymentCycleSchema },
       { name: Earning.name,      schema: earningSchema      },
       { name: User.name,         schema: userSchema         },
+      { name: YogaDetails.name,  schema: yogaDetailsSchema         },
     ]),
   ],
   controllers: [

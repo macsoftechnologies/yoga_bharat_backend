@@ -14,6 +14,7 @@ import {
 import { Request } from 'express';
 import { PaymentCyclesService } from './payment_cycle.service';
 import { RazorpayService } from 'src/auth/razorpay.service';
+import { CycleWithEarningsResponse } from './dto/payment_cycle.dto';
 
 // ─── DTOs ─────────────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ export class RejectCycleDto {
 export class ManualCycleDto {
   trainerId: string;
   fromDate?: string; // "2025-12-25"
-  toDate?:   string; // "2025-12-31"
+  toDate?: string; // "2025-12-31"
 }
 
 /**
@@ -60,15 +61,15 @@ export class AdminPaymentCyclesController {
    */
   @Get()
   getAllCycles(
-    @Query('status')    status?:   string,
+    @Query('status') status?: string,
     @Query('trainerId') trainerId?: string,
-    @Query('page')      page  = '1',
-    @Query('limit')     limit = '10',
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
   ) {
     return this.cyclesService.getAllCycles({
       status,
       trainerId,
-      page:  parseInt(page),
+      page: parseInt(page),
       limit: parseInt(limit),
     });
   }
@@ -81,8 +82,8 @@ export class AdminPaymentCyclesController {
   @Get('preview')
   previewEarnings(
     @Query('trainerId') trainerId: string,
-    @Query('fromDate')  fromDate:  string,
-    @Query('toDate')    toDate:    string,
+    @Query('fromDate') fromDate: string,
+    @Query('toDate') toDate: string,
   ) {
     return this.cyclesService.previewEarnings(trainerId, fromDate, toDate);
   }
@@ -95,7 +96,9 @@ export class AdminPaymentCyclesController {
 
   /** GET /admin/payment-cycles/:id/earnings */
   @Get(':id/earnings')
-  getCycleWithEarnings(@Param('id') id: string) {
+  getCycleEarnings(
+    @Param('id') id: string,
+  ): Promise<CycleWithEarningsResponse> {
     return this.cyclesService.getCycleWithEarnings(id);
   }
 
@@ -146,9 +149,9 @@ export class AdminPaymentCyclesController {
   ) {
     const adminId = req.user?._id || req.user?.userId || 'admin';
     return this.cyclesService.markCycleAsPaid(id, adminId, {
-      paymentMethod:   body.paymentMethod,
-      transactionRef:  body.transactionRef,
-      note:            body.note,
+      paymentMethod: body.paymentMethod,
+      transactionRef: body.transactionRef,
+      note: body.note,
     });
   }
 
@@ -206,7 +209,7 @@ export class AdminPaymentCyclesController {
 @Controller('webhooks')
 export class WebhookController {
   constructor(
-    private readonly cyclesService:   PaymentCyclesService,
+    private readonly cyclesService: PaymentCyclesService,
     private readonly razorpayService: RazorpayService,
   ) {}
 
@@ -261,13 +264,13 @@ export class TrainerPaymentCyclesController {
   @Get()
   getMyCycles(
     @Req() req: any,
-    @Query('page')  page  = '1',
+    @Query('page') page = '1',
     @Query('limit') limit = '10',
   ) {
     const trainerId = req.user?.userId || req.user?.trainerId;
     return this.cyclesService.getAllCycles({
       trainerId,
-      page:  parseInt(page),
+      page: parseInt(page),
       limit: parseInt(limit),
     });
   }
@@ -280,7 +283,9 @@ export class TrainerPaymentCyclesController {
 
   /** GET /trainer/payment-cycles/:id/earnings */
   @Get(':id/earnings')
-  getCycleEarnings(@Param('id') id: string) {
+  getCycleEarnings(
+    @Param('id') id: string,
+  ): Promise<CycleWithEarningsResponse> {
     return this.cyclesService.getCycleWithEarnings(id);
   }
 }
