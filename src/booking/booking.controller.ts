@@ -27,7 +27,7 @@ import { orderAlertDto } from './dto/order_alert.dto';
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/createbooking')
   async addBooking(@Body() req: bookingDto) {
     try {
@@ -41,7 +41,7 @@ export class BookingController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  // // @UseGuards(JwtGuard)
   @Post('/filterlist')
   getBookings(
     @Query('page') page = 1,
@@ -68,7 +68,7 @@ export class BookingController {
     });
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/delete')
   async removeBooking(@Body() req: bookingDto) {
     try {
@@ -82,8 +82,8 @@ export class BookingController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/accept')
   async acceptbooking(@Body() req: bookingDto) {
     try {

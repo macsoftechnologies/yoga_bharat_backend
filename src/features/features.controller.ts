@@ -25,8 +25,8 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 @Controller('feature')
 export class FeaturesController {
   constructor(private readonly FeaturesService: FeaturesService) {}
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/add')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -53,7 +53,7 @@ export class FeaturesController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // // @UseGuards(JwtGuard)
   @Get('/list')
   async getFeatureList(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
@@ -69,7 +69,7 @@ export class FeaturesController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/bannerbyid')
   async getFeaturesById(@Body() req: featuresDto) {
     try {
@@ -83,8 +83,8 @@ export class FeaturesController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/update')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -114,8 +114,8 @@ export class FeaturesController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/delete')
   async deletefeatues(@Body() req: featuresDto) {
     try {

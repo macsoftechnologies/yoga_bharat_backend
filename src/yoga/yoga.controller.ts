@@ -26,8 +26,8 @@ import { Roles } from 'src/auth/guards/roles.decorator';
 @Controller('yoga')
 export class YogaController {
   constructor(private readonly yogaService: YogaService) {}
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/add')
   @UseInterceptors(
     FileFieldsInterceptor([{ name: 'yoga_image' }, { name: 'yoga_icon' }]),
@@ -43,7 +43,7 @@ export class YogaController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // // @UseGuards(JwtGuard)
   @Get('/list')
   async getYogaList(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
@@ -59,7 +59,7 @@ export class YogaController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/yogabyid')
   async getYogaById(@Body() req: yogaDetailsDto) {
     try {
@@ -72,8 +72,8 @@ export class YogaController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/update')
   @UseInterceptors(
     FileFieldsInterceptor([{ name: 'yoga_image' }, { name: 'yoga_icon' }]),
@@ -92,8 +92,8 @@ export class YogaController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/delete')
   async deleteyoga(@Body() req: yogaDetailsDto) {
     try {

@@ -17,6 +17,16 @@ export class Earning extends Document {
   yogaId: string;
   @Prop()
   date: string;
+  @Prop({
+    type: String,
+    enum: ['unsettled', 'in_cycle', 'settled'],
+    default: 'unsettled',
+    index: true,
+  })
+  settlementStatus: 'unsettled' | 'in_cycle' | 'settled';
+ 
+  @Prop()
+  paymentCycleId: string;
 }
 
 export const earningSchema = SchemaFactory.createForClass(Earning);

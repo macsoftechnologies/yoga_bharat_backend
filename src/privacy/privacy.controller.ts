@@ -17,8 +17,8 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 @Controller('privacy')
 export class PrivacyController {
   constructor(private readonly privacyService: PrivacyService) {}
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/add')
   async addprivacy(@Body() req: privacyDto) {
     try {
@@ -31,8 +31,8 @@ export class PrivacyController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard)
+  // // @Roles(Role.ADMIN)
   @Get('/list')
   async getPrivacy(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
@@ -48,8 +48,8 @@ export class PrivacyController {
       };
     }
   }
-  @UseGuards(JwtGuard)
-  // @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard)
+  // // @Roles(Role.ADMIN)
   @Post('/privacybyid')
   async privacyByID(@Body() req: privacyDto) {
     try {
@@ -62,8 +62,8 @@ export class PrivacyController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/update')
   async updatePrivacy(@Body() req: privacyDto) {
     try {
@@ -76,8 +76,8 @@ export class PrivacyController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/delete')
   async deletePrivacy(@Body() req: privacyDto) {
     try {

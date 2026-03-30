@@ -10,8 +10,8 @@ import { Role } from 'src/auth/guards/roles.enum';
 export class LanguageController {
   constructor(private readonly languageService: LanguageService) {}
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/add')
   async addLanguage(@Body() req: languageDto) {
     try{
@@ -25,7 +25,7 @@ export class LanguageController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  // // @UseGuards(JwtGuard)
   @Get('/list')
   async getLanguages(@Query('page') page = 1, @Query('limit') limit = 10) {
     try{
@@ -42,7 +42,7 @@ export class LanguageController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/languagebyid')
   async getlanguageById(@Body() req: languageDto) {
     try{
@@ -56,8 +56,8 @@ export class LanguageController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/update')
   async updatelanguage(@Body() req: languageDto) {
     try{
@@ -71,8 +71,8 @@ export class LanguageController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/delete')
   async deletelanguage(@Body() req: languageDto) {
     try{

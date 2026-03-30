@@ -24,9 +24,12 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { InAppNotificationsModule } from './in-app-notifications/in-app-notifications.module';
 import { PassedOrdersModule } from './passed_orders/passed_orders.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { PaymentCyclesModule } from './payment_cycle/payment_cycle.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     // ✅ LOAD CONFIG FIRST
     ConfigModule.forRoot({
       isGlobal: true,
@@ -58,6 +61,7 @@ import { PassedOrdersModule } from './passed_orders/passed_orders.module';
     SessionsModule,
     InAppNotificationsModule,
     PassedOrdersModule,
+    PaymentCyclesModule
   ],
   controllers: [AppController],
   providers: [

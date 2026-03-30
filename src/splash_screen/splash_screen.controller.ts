@@ -18,8 +18,8 @@ import { Roles } from 'src/auth/guards/roles.decorator';
 export class SplashScreenController {
   constructor(private readonly splashScreenService: SplashScreenService) {}
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/add')
   async addSplashScreen(@Body() req: splashScreenDto) {
     try {
@@ -33,7 +33,7 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Get('/list')
   async getSplashScreenList(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
@@ -49,7 +49,7 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/screentextbyid')
   async getSplashScreenById(@Body() req: splashScreenDto) {
     try {
@@ -62,8 +62,8 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/update')
   async updateSplashScreen(@Body() req: splashScreenDto) {
     try {
@@ -76,8 +76,8 @@ export class SplashScreenController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/delete')
   async deleteSplashScreen(@Body() req: splashScreenDto) {
     try {

@@ -17,8 +17,8 @@ import { termsDto } from './tdo/terms.dto';
 @Controller('terms')
 export class TermsController {
   constructor(private readonly termsService: TermsService) {}
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/add')
   async addterms(@Body() req: termsDto) {
     try {
@@ -31,7 +31,7 @@ export class TermsController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Get('/list')
   async getterms(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
@@ -47,7 +47,7 @@ export class TermsController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/termsbyid')
   async termsByID(@Body() req: termsDto) {
     try {
@@ -60,8 +60,8 @@ export class TermsController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/update')
   async updateTerms(@Body() req: termsDto) {
     try {
@@ -74,8 +74,8 @@ export class TermsController {
       };
     }
   }
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/delete')
   async deleteTerms(@Body() req: termsDto) {
     try {

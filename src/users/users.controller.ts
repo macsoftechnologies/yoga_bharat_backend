@@ -41,8 +41,8 @@ export class UsersController {
 
   // Starting of Health Preference APIs
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/addhealthpreference')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -73,7 +73,7 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Get('/healthpreferences')
   async getHealthPrefList(@Query('page') page = 1, @Query('limit') limit = 10) {
     try {
@@ -90,7 +90,7 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/healthpreferencebyid')
   async getHealthPrefById(@Body() req: healthPreferenceDto) {
     try {
@@ -104,8 +104,8 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/updatehealthpreference')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -139,8 +139,8 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/deletehealthpreference')
   async deletehealth(@Body() req: healthPreferenceDto) {
     try {
@@ -158,8 +158,8 @@ export class UsersController {
 
   // Starting of Professional Details APIs
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/addprofessionaldetails')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -190,7 +190,7 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Get('/professionaldetails')
   async getProfessionalDetailsList() {
     try {
@@ -204,7 +204,7 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/professionaldetailsbyid')
   async getProfessionalDetailsById(@Body() req: professional_detailsDto) {
     try {
@@ -218,8 +218,8 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/updateprofessiondetails')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -251,8 +251,8 @@ export class UsersController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/deleteprofession')
   async deleteprofession(@Body() req: professional_detailsDto) {
     try {
@@ -393,8 +393,8 @@ export class UsersController {
     }
   }
 
-  // @UseGuards(JwtGuard, RolesGuard)
-  // @Roles(Role.ADMIN)
+  // // @UseGuards(JwtGuard, RolesGuard)
+  // // @Roles(Role.ADMIN)
   // @Get('/clients')
   // async getClientsList(
   //   @Query('page') page: number = 1,
@@ -411,8 +411,8 @@ export class UsersController {
   //   }
   // }
 
-@UseGuards(JwtGuard, RolesGuard)
-@Roles(Role.ADMIN)
+// @UseGuards(JwtGuard, RolesGuard)
+// @Roles(Role.ADMIN)
 @Get('/clients')
 async getClientsList(
   @Query('page') page: number = 1,
@@ -444,8 +444,8 @@ async getClientsList(
   }
 }
 
-  // @UseGuards(JwtGuard, RolesGuard)
-  // @Roles(Role.ADMIN)
+  // // @UseGuards(JwtGuard, RolesGuard)
+  // // @Roles(Role.ADMIN)
   // @Get('/trainers')
   // async getTrainersList(
   //   @Query('page') page: number = 1,
@@ -462,8 +462,8 @@ async getClientsList(
   //   }
   // }
 
-@UseGuards(JwtGuard, RolesGuard)
-@Roles(Role.ADMIN)
+// @UseGuards(JwtGuard, RolesGuard)
+// @Roles(Role.ADMIN)
 @Get('/trainers')
 async getTrainersList(
   @Query('page') page: number = 1,
@@ -495,8 +495,8 @@ async getTrainersList(
   }
 }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/approvetrainer')
   async aprroveTrainer(@Body() req: trainerEKYCDto) {
     try {
@@ -510,8 +510,8 @@ async getTrainersList(
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/disabletrainer')
   async disableTrainer(@Body() req: trainerDto) {
     try {
@@ -525,7 +525,7 @@ async getTrainersList(
     }
   }
 
-  @UseGuards(JwtGuard)
+  // // @UseGuards(JwtGuard)
   @Post('/userbyid')
   async getUser(@Body() req: clientDto) {
     try {
@@ -539,7 +539,7 @@ async getTrainersList(
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/update')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -567,7 +567,7 @@ async getTrainersList(
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/delete')
   async removeUser(@Body() req: userDeleteDto) {
     try {
@@ -581,7 +581,7 @@ async getTrainersList(
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/addcertificate')
   @UseInterceptors(
     AnyFilesInterceptor({
@@ -609,7 +609,7 @@ async getTrainersList(
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Get('/certificateslist')
   async getCertificatesList() {
     try {
@@ -623,7 +623,7 @@ async getTrainersList(
     }
   }
 
-  @UseGuards(JwtGuard)
+  // // @UseGuards(JwtGuard)
   @Post('/certificatebyuser')
   async getUserCertificates(@Body() req: certificateDto) {
     try {
@@ -637,7 +637,7 @@ async getTrainersList(
     }
   }
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/deletecertificate')
   async removeCertificate(@Body() req: certificateDto) {
     try {

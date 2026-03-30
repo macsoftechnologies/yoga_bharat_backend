@@ -23,8 +23,8 @@ import { apptutorialDto } from './dto/apptutorial.dto';
 @Controller('apptutorial')
 export class ApptutorialController {
   constructor(private readonly ApptutorialService: ApptutorialService) {}
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/add')
   @UseInterceptors(
     FileInterceptor('app_image', {
@@ -90,7 +90,7 @@ export class ApptutorialController {
       };
     }
   }
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('/tutorialbyid')
   async getAppbyId(@Body() req: apptutorialDto) {
     try {
@@ -103,8 +103,8 @@ export class ApptutorialController {
       };
     }
   }
-  // @UseGuards(JwtGuard, RolesGuard)
-  // @Roles(Role.ADMIN)
+  // // @UseGuards(JwtGuard, RolesGuard)
+  // // @Roles(Role.ADMIN)
   // @Post('/update')
   // @UseInterceptors(
   //   AnyFilesInterceptor({
@@ -132,8 +132,8 @@ export class ApptutorialController {
   //   }
   // }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/update')
   @UseInterceptors(
     FileInterceptor('app_image', {
@@ -184,8 +184,8 @@ export class ApptutorialController {
     }
   }
 
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Post('/delete')
   async deletetutorial(@Body() req: apptutorialDto) {
     try {

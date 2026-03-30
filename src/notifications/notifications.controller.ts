@@ -8,7 +8,7 @@ import { notificationsDto } from './dto/notifications.dto';
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  @UseGuards(JwtGuard)
+  // @UseGuards(JwtGuard)
   @Post('fcm-token')
   async registerFcmToken(@Body() body: fcmDto) {
     return await this.notificationsService.saveFcmToken(body);
