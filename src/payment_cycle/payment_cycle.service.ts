@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   HttpStatus,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -13,7 +14,10 @@ import { Earning } from 'src/booking/schema/earnings.scheam';
 import { User } from 'src/users/schema/user.schema';
 import { RazorpayService } from 'src/auth/razorpay.service';
 import { YogaDetails } from 'src/yoga/schema/yoga_details.schema';
-import { CycleWithEarningsResponse, EnrichedEarning } from './dto/payment_cycle.dto';
+import {
+  CycleWithEarningsResponse,
+  EnrichedEarning,
+} from './dto/payment_cycle.dto';
 
 // Pricing model:
 //   client_price  = ₹600  → client pays
@@ -59,7 +63,7 @@ export class PaymentCyclesService {
   // Generate payment cycles for all trainers
   // ═══════════════════════════════════════════════════════
   async generateCyclesForAllTrainers() {
-    const cycleEnd   = new Date();
+    const cycleEnd = new Date();
     const cycleStart = new Date();
     cycleStart.setDate(cycleStart.getDate() - 7);
     cycleStart.setHours(0, 0, 0, 0);
@@ -87,7 +91,8 @@ export class PaymentCyclesService {
     }
 
     // Group by trainerId and sum earned_amount
-    const grouped: Record<string, { earnings: typeof inRange; total: number }> = {};
+    const grouped: Record<string, { earnings: typeof inRange; total: number }> =
+      {};
     for (const e of inRange) {
       if (!grouped[e.trainerId]) {
         grouped[e.trainerId] = { earnings: [], total: 0 };
@@ -107,7 +112,9 @@ export class PaymentCyclesService {
         .lean();
 
       if (!trainer) {
-        this.logger.warn(`Trainer userId=${trainerId} not found in users — skipping`);
+        this.logger.warn(
+          `Trainer userId=${trainerId} not found in users — skipping`,
+        );
         continue;
       }
 
@@ -123,8 +130,8 @@ export class PaymentCyclesService {
         created++;
         results.push({
           trainerId,
-          trainerName:  trainer.name,
-          cycleId:      cycle._id,
+          trainerName: trainer.name,
+          cycleId: cycle._id,
           totalEarnings: cycle.totalEarnings,
         });
       }
@@ -139,39 +146,43 @@ export class PaymentCyclesService {
   // totalEarnings = full payout amount (no deductions)
   // ═══════════════════════════════════════════════════════
   async createCycleForTrainer(
-    trainer:       any,
-    earnings:      any[],
+    trainer: any,
+    earnings: any[],
     totalEarnings: number,
-    cycleStart:    Date,
-    cycleEnd:      Date,
+    cycleStart: Date,
+    cycleEnd: Date,
   ) {
     // Prevent duplicate cycles for same trainer + period
     const existing = await this.cycleModel.findOne({
-      trainerId:  trainer.userId,
-      cycleStart: { $gte: cycleStart },
-      status:     { $nin: ['rejected'] },
+      trainerId: trainer.userId,
+      cycleStart: { $lte: cycleEnd }, // existing cycle starts before our end
+      cycleEnd: { $gte: cycleStart }, // existing cycle ends after our start
+      status: { $nin: ['rejected'] },
     });
 
     if (existing) {
       this.logger.warn(
         `Cycle already exists for trainer ${trainer.name} in this period — skipping`,
       );
-      return null;
+      // return null;
+      throw new ConflictException(
+        `A payment cycle already exists for trainer ${trainer.name} in this period`,
+      );
     }
 
     const cycle = await this.cycleModel.create({
       // Trainer identity
-      trainerId:     trainer.userId,
-      trainerName:   trainer.name,
-      trainerEmail:  trainer.email,
+      trainerId: trainer.userId,
+      trainerName: trainer.name,
+      trainerEmail: trainer.email,
       trainerMobile: trainer.mobileNumber,
 
       // Bank details snapshot from User document
-      account_no:     trainer.account_no     || null,
-      ifsc_code:      trainer.ifsc_code      || null,
-      account_branch: trainer.account_branch  || null,
-      branch_address: trainer.branch_address  || null,
-      recipient_name: trainer.recipient_name  || trainer.name,
+      account_no: trainer.account_no || null,
+      ifsc_code: trainer.ifsc_code || null,
+      account_branch: trainer.account_branch || null,
+      branch_address: trainer.branch_address || null,
+      recipient_name: trainer.recipient_name || trainer.name,
 
       cycleStart,
       cycleEnd,
@@ -180,7 +191,7 @@ export class PaymentCyclesService {
       totalEarnings,
       totalSessions: earnings.length,
 
-      status:     'pending_review',
+      status: 'pending_review',
       earningIds: earnings.map((e) => e._id.toString()),
     });
 
@@ -190,15 +201,15 @@ export class PaymentCyclesService {
       {
         $set: {
           settlementStatus: 'in_cycle',
-          paymentCycleId:   cycle.cycleId.toString(),
+          paymentCycleId: cycle.cycleId.toString(),
         },
       },
     );
 
     this.logger.log(
       `Cycle created | Trainer: ${trainer.name} | ` +
-      `Sessions: ${earnings.length} | Payout: ₹${totalEarnings} | ` +
-      `Bank: ${trainer.account_no} / ${trainer.ifsc_code}`,
+        `Sessions: ${earnings.length} | Payout: ₹${totalEarnings} | ` +
+        `Bank: ${trainer.account_no} / ${trainer.ifsc_code}`,
     );
 
     return cycle;
@@ -208,31 +219,36 @@ export class PaymentCyclesService {
   // ADMIN — List cycles with filters
   // ═══════════════════════════════════════════════════════
   async getAllCycles(filters: {
-    status?:    string;
+    status?: string;
     trainerId?: string;
-    page:       number;
-    limit:      number;
+    page: number;
+    limit: number;
   }) {
     const { status, trainerId, page, limit } = filters;
     const query: any = {};
-    if (status)    query.status    = status;
+    if (status) query.status = status;
     if (trainerId) query.trainerId = trainerId;
 
     const skip = (page - 1) * limit;
     const [cycles, total] = await Promise.all([
-      this.cycleModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      this.cycleModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       this.cycleModel.countDocuments(query),
     ]);
 
     // return { cycles, total, page, limit, totalPages: Math.ceil(total / limit) };
     return {
       statusCode: HttpStatus.OK,
-      message: "List of Payment Cycles",
+      message: 'List of Payment Cycles',
       currentPage: page,
       limit,
-      totalPages: Math.ceil(total/limit),
-      data: cycles
-    }
+      totalPages: Math.ceil(total / limit),
+      data: cycles,
+    };
   }
 
   // ═══════════════════════════════════════════════════════
@@ -243,15 +259,17 @@ export class PaymentCyclesService {
     if (!cycle) throw new NotFoundException('Payment cycle not found');
     return {
       statusCode: HttpStatus.OK,
-      message: "Payment Cycle Details",
-      data: cycle
-    }
+      message: 'Payment Cycle Details',
+      data: cycle,
+    };
   }
 
   // ═══════════════════════════════════════════════════════
   // ADMIN — Get cycle + its earning records
   // ═══════════════════════════════════════════════════════
-  async getCycleWithEarnings(cycleId: string): Promise<CycleWithEarningsResponse> {
+  async getCycleWithEarnings(
+    cycleId: string,
+  ): Promise<CycleWithEarningsResponse> {
     const cycle = await this.getCycleById(cycleId);
     const earnings = await this.earningModel
       .find({ paymentCycleId: cycle.data.cycleId })
@@ -259,30 +277,39 @@ export class PaymentCyclesService {
       .lean();
     // return { cycle, earnings, totalSessions: earnings.length };
     const enrichedEarnings = await Promise.all(
-    earnings.map(async (earning) => {
-      const [trainer, client, yoga] = await Promise.all([
-        this.userModel.findOne({ userId: earning.trainerId }).select('name').lean(),
-        this.userModel.findOne({ userId: earning.clientId }).select('name').lean(),
-        this.yogaModel.findOne({ yogaId: earning.yogaId }).select('yoga_name trainer_price client_price').lean(),
-      ]);
+      earnings.map(async (earning) => {
+        const [trainer, client, yoga] = await Promise.all([
+          this.userModel
+            .findOne({ userId: earning.trainerId })
+            .select('name')
+            .lean(),
+          this.userModel
+            .findOne({ userId: earning.clientId })
+            .select('name')
+            .lean(),
+          this.yogaModel
+            .findOne({ yogaId: earning.yogaId })
+            .select('yoga_name trainer_price client_price')
+            .lean(),
+        ]);
 
-      return {
-        ...earning,
-        trainerName: trainer?.name ?? null,
-        clientName: client?.name ?? null,
-        yogaName: yoga?.yoga_name ?? null,
-        clientPrice: yoga?.client_price ?? null,
-        trainerPrice: yoga?.trainer_price ?? null,
-      } as unknown as EnrichedEarning;
-    })
-  );
+        return {
+          ...earning,
+          trainerName: trainer?.name ?? null,
+          clientName: client?.name ?? null,
+          yogaName: yoga?.yoga_name ?? null,
+          clientPrice: yoga?.client_price ?? null,
+          trainerPrice: yoga?.trainer_price ?? null,
+        } as unknown as EnrichedEarning;
+      }),
+    );
     return {
       statusCode: HttpStatus.OK,
-      message: "Details of Cycle With Earnings",
+      message: 'Details of Cycle With Earnings',
       totalSessions: earnings.length,
       data: cycle,
-      earnings: enrichedEarnings
-    }
+      earnings: enrichedEarnings,
+    };
   }
 
   // ═══════════════════════════════════════════════════════
@@ -300,31 +327,31 @@ export class PaymentCyclesService {
 
     // Validate bank details before approving
     const missing = [
-      !cycle.account_no     && 'account_no',
-      !cycle.ifsc_code      && 'ifsc_code',
+      !cycle.account_no && 'account_no',
+      !cycle.ifsc_code && 'ifsc_code',
       !cycle.recipient_name && 'recipient_name',
     ].filter(Boolean);
 
     if (missing.length) {
       throw new BadRequestException(
         `Cannot approve — trainer bank details incomplete. ` +
-        `Missing: ${missing.join(', ')}. ` +
-        `Ask the trainer to complete their bank KYC.`,
+          `Missing: ${missing.join(', ')}. ` +
+          `Ask the trainer to complete their bank KYC.`,
       );
     }
 
-    cycle.status     = 'approved';
+    cycle.status = 'approved';
     cycle.approvedBy = adminId;
     cycle.approvedAt = new Date();
-    cycle.adminNote  = note || null;
+    cycle.adminNote = note || null;
     await cycle.save();
 
     this.logger.log(`✅ Cycle ${cycleId} APPROVED by admin ${adminId}`);
     return {
       statusCode: HttpStatus.OK,
-      message: "Cycle approved successfully",
-      data: cycle
-    }
+      message: 'Cycle approved successfully',
+      data: cycle,
+    };
   }
 
   // ═══════════════════════════════════════════════════════
@@ -340,10 +367,10 @@ export class PaymentCyclesService {
       );
     }
 
-    cycle.status     = 'rejected';
+    cycle.status = 'rejected';
     cycle.approvedBy = adminId;
     cycle.rejectedAt = new Date();
-    cycle.adminNote  = reason;
+    cycle.adminNote = reason;
     await cycle.save();
 
     // Revert earnings → re-enter next week's cycle automatically
@@ -357,9 +384,9 @@ export class PaymentCyclesService {
     );
     return {
       statusCode: HttpStatus.OK,
-      message: "Cycle rejected successfully",
-      data: cycle
-    }
+      message: 'Cycle rejected successfully',
+      data: cycle,
+    };
   }
 
   // ═══════════════════════════════════════════════════════
@@ -369,12 +396,12 @@ export class PaymentCyclesService {
   // Only works when status === 'approved'
   // ═══════════════════════════════════════════════════════
   async markCycleAsPaid(
-    cycleId:   string,
-    adminId:   string,
+    cycleId: string,
+    adminId: string,
     details: {
-      paymentMethod:    string;   // e.g. "NEFT", "UPI", "Cash", "Cheque"
-      transactionRef?:  string;   // UTR / UPI ref / cheque number
-      note?:            string;
+      paymentMethod: string; // e.g. "NEFT", "UPI", "Cash", "Cheque"
+      transactionRef?: string; // UTR / UPI ref / cheque number
+      note?: string;
     },
   ) {
     const cycle = await this.cycleModel.findOne({ cycleId });
@@ -386,15 +413,17 @@ export class PaymentCyclesService {
       );
     }
 
-    cycle.status          = 'paid';
-    cycle.paidAt          = new Date();
-    cycle.approvedBy      = adminId;  // last admin who acted
-    cycle.adminNote       = [
+    cycle.status = 'paid';
+    cycle.paidAt = new Date();
+    cycle.approvedBy = adminId; // last admin who acted
+    cycle.adminNote = [
       `Manual payment by admin ${adminId}`,
       `Method: ${details.paymentMethod}`,
       details.transactionRef ? `Ref: ${details.transactionRef}` : null,
-      details.note           ? `Note: ${details.note}`          : null,
-    ].filter(Boolean).join(' | ');
+      details.note ? `Note: ${details.note}` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
 
     await cycle.save();
 
@@ -406,19 +435,19 @@ export class PaymentCyclesService {
 
     this.logger.log(
       `💰 MANUALLY PAID | Trainer: ${cycle.trainerName} | ` +
-      `₹${cycle.totalEarnings} | Method: ${details.paymentMethod} | ` +
-      `Ref: ${details.transactionRef || 'N/A'} | By: ${adminId}`,
+        `₹${cycle.totalEarnings} | Method: ${details.paymentMethod} | ` +
+        `Ref: ${details.transactionRef || 'N/A'} | By: ${adminId}`,
     );
 
     return {
-      success:       true,
-      cycleId:       cycle.cycleId,
-      trainerName:   cycle.trainerName,
-      amount:        cycle.totalEarnings,
-      paidAt:        cycle.paidAt,
+      success: true,
+      cycleId: cycle.cycleId,
+      trainerName: cycle.trainerName,
+      amount: cycle.totalEarnings,
+      paidAt: cycle.paidAt,
       paymentMethod: details.paymentMethod,
       transactionRef: details.transactionRef || null,
-      status:        cycle.status,
+      status: cycle.status,
     };
   }
 
@@ -588,40 +617,41 @@ export class PaymentCyclesService {
   // ADMIN — Dashboard stats
   // ═══════════════════════════════════════════════════════
   async getDashboardStats() {
-    const [byStatus, pendingData, paidData, trainersWaiting] = await Promise.all([
-      this.cycleModel.aggregate([
-        {
-          $group: {
-            _id:         '$status',
-            count:       { $sum: 1 },
-            totalAmount: { $sum: '$totalEarnings' },
+    const [byStatus, pendingData, paidData, trainersWaiting] =
+      await Promise.all([
+        this.cycleModel.aggregate([
+          {
+            $group: {
+              _id: '$status',
+              count: { $sum: 1 },
+              totalAmount: { $sum: '$totalEarnings' },
+            },
           },
-        },
-      ]),
-      this.cycleModel.aggregate([
-        { $match: { status: 'pending_review' } },
-        {
-          $group: {
-            _id:      null,
-            total:    { $sum: '$totalEarnings' },
-            sessions: { $sum: '$totalSessions' },
-            count:    { $sum: 1 },
+        ]),
+        this.cycleModel.aggregate([
+          { $match: { status: 'pending_review' } },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: '$totalEarnings' },
+              sessions: { $sum: '$totalSessions' },
+              count: { $sum: 1 },
+            },
           },
-        },
-      ]),
-      this.cycleModel.aggregate([
-        { $match: { status: 'paid' } },
-        { $group: { _id: null, total: { $sum: '$totalEarnings' } } },
-      ]),
-      this.cycleModel.distinct('trainerId', { status: 'pending_review' }),
-    ]);
+        ]),
+        this.cycleModel.aggregate([
+          { $match: { status: 'paid' } },
+          { $group: { _id: null, total: { $sum: '$totalEarnings' } } },
+        ]),
+        this.cycleModel.distinct('trainerId', { status: 'pending_review' }),
+      ]);
 
     return {
-      pendingCycles:           pendingData[0]?.count    || 0,
-      pendingAmount:           pendingData[0]?.total    || 0,
-      pendingSessions:         pendingData[0]?.sessions || 0,
+      pendingCycles: pendingData[0]?.count || 0,
+      pendingAmount: pendingData[0]?.total || 0,
+      pendingSessions: pendingData[0]?.sessions || 0,
       trainersAwaitingPayment: trainersWaiting.length,
-      totalPaidOut:            paidData[0]?.total       || 0,
+      totalPaidOut: paidData[0]?.total || 0,
       byStatus,
     };
   }
@@ -629,8 +659,12 @@ export class PaymentCyclesService {
   // ═══════════════════════════════════════════════════════
   // ADMIN — Manual cycle for a specific trainer
   // ═══════════════════════════════════════════════════════
-  async manualCreateCycle(trainerId: string, fromDate?: string, toDate?: string) {
-    const cycleEnd   = toDate   ? new Date(toDate)   : new Date();
+  async manualCreateCycle(
+    trainerId: string,
+    fromDate?: string,
+    toDate?: string,
+  ) {
+    const cycleEnd = toDate ? new Date(toDate) : new Date();
     const cycleStart = fromDate ? new Date(fromDate) : new Date();
     if (!fromDate) cycleStart.setDate(cycleStart.getDate() - 7);
     cycleStart.setHours(0, 0, 0, 0);
@@ -639,7 +673,23 @@ export class PaymentCyclesService {
     const trainer = await this.userModel
       .findOne({ userId: trainerId, role: 'trainer' })
       .lean();
-    if (!trainer) throw new NotFoundException(`Trainer not found: ${trainerId}`);
+    if (!trainer)
+      throw new NotFoundException(`Trainer not found: ${trainerId}`);
+
+    // ✅ Check for existing cycle BEFORE querying earnings, and throw instead of silent return
+    const existingCycle = await this.cycleModel
+      .findOne({
+        trainerId,
+        cycleStart: { $lte: cycleEnd },
+        cycleEnd: { $gte: cycleStart },
+      })
+      .lean();
+
+    if (existingCycle) {
+      throw new ConflictException(
+        `A payment cycle already exists for trainer ${trainer.name} overlapping this date range (${cycleStart.toDateString()} - ${cycleEnd.toDateString()})`,
+      );
+    }
 
     const unsettled = await this.earningModel
       .find({ trainerId, settlementStatus: 'unsettled' })
@@ -649,17 +699,25 @@ export class PaymentCyclesService {
       try {
         const d = new Date(e.date);
         return d >= cycleStart && d <= cycleEnd;
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     });
 
     if (!inRange.length) {
       throw new BadRequestException(
-        `No unsettled earnings for trainer ${trainer.name} in the given date range`,
+        `No unsettled earnings for trainer ${trainer.name} in the given date range (${cycleStart.toDateString()} - ${cycleEnd.toDateString()})`,
       );
     }
 
     const total = inRange.reduce((sum, e) => sum + e.earned_amount, 0);
-    return this.createCycleForTrainer(trainer, inRange, total, cycleStart, cycleEnd);
+    return this.createCycleForTrainer(
+      trainer,
+      inRange,
+      total,
+      cycleStart,
+      cycleEnd,
+    );
   }
 
   // ═══════════════════════════════════════════════════════
@@ -667,13 +725,14 @@ export class PaymentCyclesService {
   // ═══════════════════════════════════════════════════════
   async previewEarnings(trainerId: string, fromDate: string, toDate: string) {
     const from = new Date(fromDate);
-    const to   = new Date(toDate);
+    const to = new Date(toDate);
     to.setHours(23, 59, 59, 999);
 
     const trainer = await this.userModel
       .findOne({ userId: trainerId, role: 'trainer' })
       .lean();
-    if (!trainer) throw new NotFoundException(`Trainer not found: ${trainerId}`);
+    if (!trainer)
+      throw new NotFoundException(`Trainer not found: ${trainerId}`);
 
     const unsettled = await this.earningModel
       .find({ trainerId, settlementStatus: 'unsettled' })
@@ -683,33 +742,35 @@ export class PaymentCyclesService {
       try {
         const d = new Date(e.date);
         return d >= from && d <= to;
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     });
 
     const totalEarnings = inRange.reduce((s, e) => s + e.earned_amount, 0);
 
     return {
       statusCode: HttpStatus.OK,
-      message: "Unsettled Earnings Preview of trainer",
+      message: 'Unsettled Earnings Preview of trainer',
       trainer: {
-        name:               trainer.name,
-        email:              trainer.email,
-        mobile:             trainer.mobileNumber,
-        ekyc_status:        trainer.ekyc_status,
-        recipient_name:     trainer.recipient_name,
-        account_no:         trainer.account_no,
-        ifsc_code:          trainer.ifsc_code,
-        account_branch:     trainer.account_branch,
+        name: trainer.name,
+        email: trainer.email,
+        mobile: trainer.mobileNumber,
+        ekyc_status: trainer.ekyc_status,
+        recipient_name: trainer.recipient_name,
+        account_no: trainer.account_no,
+        ifsc_code: trainer.ifsc_code,
+        account_branch: trainer.account_branch,
         bankDetailsComplete: !!(
           trainer.account_no &&
-          trainer.ifsc_code  &&
+          trainer.ifsc_code &&
           trainer.recipient_name
         ),
       },
-      period:        { from: fromDate, to: toDate },
+      period: { from: fromDate, to: toDate },
       totalSessions: inRange.length,
       totalEarnings,
-      earnings:      inRange,
+      earnings: inRange,
     };
   }
 }
