@@ -223,32 +223,46 @@ export class PaymentCyclesService {
     trainerId?: string;
     page: number;
     limit: number;
+    isExport?: boolean;
   }) {
-    const { status, trainerId, page, limit } = filters;
+    const { status, trainerId, page, limit, isExport } = filters;
     const query: any = {};
     if (status) query.status = status;
     if (trainerId) query.trainerId = trainerId;
 
     const skip = (page - 1) * limit;
-    const [cycles, total] = await Promise.all([
-      this.cycleModel
-        .find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      this.cycleModel.countDocuments(query),
-    ]);
+    let [cycles, total]: any = [];
+    if (isExport) {
+      [cycles, total] = await Promise.all([
+        this.cycleModel
+          .find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        this.cycleModel.countDocuments(query),
+      ]);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of Payment Cycles',
+        data: cycles,
+      };
+    } else {
+      [cycles, total] = await Promise.all([
+        this.cycleModel.find(query).sort({ createdAt: -1 }).lean(),
+        this.cycleModel.countDocuments(query),
+      ]);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'List of Payment Cycles',
+        currentPage: page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        data: cycles,
+      };
+    }
 
     // return { cycles, total, page, limit, totalPages: Math.ceil(total / limit) };
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'List of Payment Cycles',
-      currentPage: page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      data: cycles,
-    };
   }
 
   // ═══════════════════════════════════════════════════════
@@ -269,13 +283,24 @@ export class PaymentCyclesService {
   // ═══════════════════════════════════════════════════════
   async getCycleWithEarnings(
     cycleId: string,
+    pagination: { page: number; limit: number },
   ): Promise<CycleWithEarningsResponse> {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
     const cycle = await this.getCycleById(cycleId);
-    const earnings = await this.earningModel
-      .find({ paymentCycleId: cycle.data.cycleId })
-      .sort({ date: 1 })
-      .lean();
-    // return { cycle, earnings, totalSessions: earnings.length };
+
+    // Get total count first, then fetch paginated slice
+    const [earnings, totalEarnings] = await Promise.all([
+      this.earningModel
+        .find({ paymentCycleId: cycle.data.cycleId })
+        .sort({ date: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.earningModel.countDocuments({ paymentCycleId: cycle.data.cycleId }),
+    ]);
+
     const enrichedEarnings = await Promise.all(
       earnings.map(async (earning) => {
         const [trainer, client, yoga] = await Promise.all([
@@ -303,14 +328,62 @@ export class PaymentCyclesService {
         } as unknown as EnrichedEarning;
       }),
     );
+
     return {
       statusCode: HttpStatus.OK,
       message: 'Details of Cycle With Earnings',
-      totalSessions: earnings.length,
+      totalSessions: totalEarnings, // ✅ total count across all pages
+      currentPage: page,
+      limit,
+      totalPages: Math.ceil(totalEarnings / limit),
       data: cycle,
-      earnings: enrichedEarnings,
+      earnings: enrichedEarnings, // ✅ paginated slice
     };
   }
+  // async getCycleWithEarnings(
+  //   cycleId: string,
+  // ): Promise<CycleWithEarningsResponse> {
+  //   const cycle = await this.getCycleById(cycleId);
+  //   const earnings = await this.earningModel
+  //     .find({ paymentCycleId: cycle.data.cycleId })
+  //     .sort({ date: 1 })
+  //     .lean();
+  //   // return { cycle, earnings, totalSessions: earnings.length };
+  //   const enrichedEarnings = await Promise.all(
+  //     earnings.map(async (earning) => {
+  //       const [trainer, client, yoga] = await Promise.all([
+  //         this.userModel
+  //           .findOne({ userId: earning.trainerId })
+  //           .select('name')
+  //           .lean(),
+  //         this.userModel
+  //           .findOne({ userId: earning.clientId })
+  //           .select('name')
+  //           .lean(),
+  //         this.yogaModel
+  //           .findOne({ yogaId: earning.yogaId })
+  //           .select('yoga_name trainer_price client_price')
+  //           .lean(),
+  //       ]);
+
+  //       return {
+  //         ...earning,
+  //         trainerName: trainer?.name ?? null,
+  //         clientName: client?.name ?? null,
+  //         yogaName: yoga?.yoga_name ?? null,
+  //         clientPrice: yoga?.client_price ?? null,
+  //         trainerPrice: yoga?.trainer_price ?? null,
+  //       } as unknown as EnrichedEarning;
+  //     }),
+  //   );
+  //   return {
+  //     statusCode: HttpStatus.OK,
+  //     message: 'Details of Cycle With Earnings',
+  //     totalSessions: earnings.length,
+  //     data: cycle,
+  //     earnings: enrichedEarnings,
+  //   };
+  // }
 
   // ═══════════════════════════════════════════════════════
   // ADMIN — Approve cycle

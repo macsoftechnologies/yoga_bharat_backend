@@ -26,4 +26,7 @@ export interface CycleWithEarningsResponse {
   totalSessions: number;
   data: any;
   earnings: EnrichedEarning[];
+  currentPage: number;
+  limit: number;
+  totalPages: number;
 }

@@ -65,12 +65,14 @@ export class AdminPaymentCyclesController {
     @Query('trainerId') trainerId?: string,
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Query('isExport') isExport?: boolean,
   ) {
     return this.cyclesService.getAllCycles({
       status,
       trainerId,
       page: parseInt(page),
       limit: parseInt(limit),
+      isExport,
     });
   }
 
@@ -98,8 +100,13 @@ export class AdminPaymentCyclesController {
   @Get(':id/earnings')
   getCycleEarnings(
     @Param('id') id: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
   ): Promise<CycleWithEarningsResponse> {
-    return this.cyclesService.getCycleWithEarnings(id);
+    return this.cyclesService.getCycleWithEarnings(id, {
+      page: Math.max(1, parseInt(page, 10) || 1),
+      limit: Math.max(1, parseInt(limit, 10) || 10),
+    });
   }
 
   /**
@@ -285,7 +292,12 @@ export class TrainerPaymentCyclesController {
   @Get(':id/earnings')
   getCycleEarnings(
     @Param('id') id: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
   ): Promise<CycleWithEarningsResponse> {
-    return this.cyclesService.getCycleWithEarnings(id);
+    return this.cyclesService.getCycleWithEarnings(id, {
+      page: Math.max(1, parseInt(page, 10) || 1),
+      limit: Math.max(1, parseInt(limit, 10) || 10),
+    });
   }
 }
