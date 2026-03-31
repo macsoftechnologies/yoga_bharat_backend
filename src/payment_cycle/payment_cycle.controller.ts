@@ -114,7 +114,7 @@ export class AdminPaymentCyclesController {
    * Body: { note?: string }
    * Validates: account_no, ifsc_code, recipient_name must exist
    */
-  @Patch(':id/approve')
+  @Post(':id/approve')
   approveCycle(
     @Param('id') id: string,
     @Body() body: ApproveCycleDto,
@@ -129,7 +129,7 @@ export class AdminPaymentCyclesController {
    * Body: { reason: string }
    * Earnings revert to unsettled → picked up next cycle
    */
-  @Patch(':id/reject')
+  @Post(':id/reject')
   rejectCycle(
     @Param('id') id: string,
     @Body() body: RejectCycleDto,
