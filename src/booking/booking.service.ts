@@ -437,17 +437,32 @@ export class BookingService {
         }
       });
       const match: any = {};
+      const isStatusOpened =
+        filters.status && filters.status.toLowerCase() === 'opened';
 
       if (filters.bookingId) match.bookingId = filters.bookingId;
       if (filters.clientId) match.clientId = filters.clientId;
-      if (filters.accepted_trainerId)
+      if (filters.accepted_trainerId) {
         match.accepted_trainerId = filters.accepted_trainerId;
+
+        if (isStatusOpened) {
+          const trainer = await this.userModel
+            .findOne({ userId: filters.accepted_trainerId })
+            .select('professional_details')
+            .lean();
+
+          if (trainer?.professional_details) {
+            match.yogaId =  trainer?.professional_details ;
+          }
+        }
+      } else if (filters.yogaId) {
+        match.yogaId = filters.yogaId;
+      }
       if (filters.status) {
         match.status = {
           $regex: new RegExp(filters.status, 'i'),
         };
       }
-      if (filters.yogaId) match.yogaId = filters.yogaId;
       if (filters.time) match.time = filters.time;
       if (filters.bookingType) {
         match.bookingType = {
@@ -540,9 +555,6 @@ export class BookingService {
       }
 
       let excludedBookingIds: string[] = [];
-
-      const isStatusOpened =
-        filters.status && filters.status.toLowerCase() === 'opened';
 
       if (isStatusOpened && filters.trainerId) {
         const passedOrders = await this.passedOrderModel
