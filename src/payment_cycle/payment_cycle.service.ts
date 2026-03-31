@@ -737,11 +737,40 @@ export class PaymentCyclesService {
     fromDate?: string,
     toDate?: string,
   ) {
-    const cycleEnd = toDate ? new Date(toDate) : new Date();
-    const cycleStart = fromDate ? new Date(fromDate) : new Date();
-    if (!fromDate) cycleStart.setDate(cycleStart.getDate() - 7);
-    cycleStart.setHours(0, 0, 0, 0);
-    cycleEnd.setHours(23, 59, 59, 999);
+    // ✅ Parse date strings as IST (UTC+5:30) instead of UTC
+    const parseIST = (dateStr: string, endOfDay = false): Date => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date();
+      date.setFullYear(year, month - 1, day);
+      if (endOfDay) {
+        date.setHours(23, 59, 59, 999);
+      } else {
+        date.setHours(0, 0, 0, 0);
+      }
+      return date;
+    };
+
+    const cycleStart = fromDate
+      ? parseIST(fromDate, false)
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - 7);
+          d.setHours(0, 0, 0, 0);
+          return d;
+        })();
+
+    const cycleEnd = toDate
+      ? parseIST(toDate, true)
+      : (() => {
+          const d = new Date();
+          d.setHours(23, 59, 59, 999);
+          return d;
+        })();
+    // const cycleEnd = toDate ? new Date(toDate) : new Date();
+    // const cycleStart = fromDate ? new Date(fromDate) : new Date();
+    // if (!fromDate) cycleStart.setDate(cycleStart.getDate() - 7);
+    // cycleStart.setHours(0, 0, 0, 0);
+    // cycleEnd.setHours(23, 59, 59, 999);
 
     const trainer = await this.userModel
       .findOne({ userId: trainerId, role: 'trainer' })
@@ -755,7 +784,7 @@ export class PaymentCyclesService {
         trainerId,
         cycleStart: { $lte: cycleEnd },
         cycleEnd: { $gte: cycleStart },
-        status: { $nin: ['rejected', 'failed'] }
+        status: { $nin: ['rejected', 'failed'] },
       })
       .lean();
 
