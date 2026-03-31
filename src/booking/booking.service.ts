@@ -443,20 +443,21 @@ export class BookingService {
       if (filters.bookingId) match.bookingId = filters.bookingId;
       if (filters.clientId) match.clientId = filters.clientId;
       if (filters.accepted_trainerId) {
-        match.accepted_trainerId = filters.accepted_trainerId;
-
         if (isStatusOpened) {
+          match.trainerIds = filters.accepted_trainerId;
+
           const trainer = await this.userModel
             .findOne({ userId: filters.accepted_trainerId })
-            .select('professional_details')
             .lean();
 
+          console.log('professional_details:', trainer?.professional_details);
+
           if (trainer?.professional_details) {
-            match.yogaId =  trainer?.professional_details ;
+            match.yogaId = trainer.professional_details;
           }
+        } else {
+          match.accepted_trainerId = filters.accepted_trainerId;
         }
-      } else if (filters.yogaId) {
-        match.yogaId = filters.yogaId;
       }
       if (filters.status) {
         match.status = {
