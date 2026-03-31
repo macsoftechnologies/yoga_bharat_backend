@@ -155,9 +155,9 @@ export class PaymentCyclesService {
     // Prevent duplicate cycles for same trainer + period
     const existing = await this.cycleModel.findOne({
       trainerId: trainer.userId,
-      cycleStart: { $lte: cycleEnd }, // existing cycle starts before our end
-      cycleEnd: { $gte: cycleStart }, // existing cycle ends after our start
-      status: { $nin: ['rejected'] },
+      cycleStart: { $lte: cycleEnd },
+      cycleEnd: { $gte: cycleStart },
+      status: { $nin: ['rejected', 'failed'] },
     });
 
     if (existing) {
@@ -755,6 +755,7 @@ export class PaymentCyclesService {
         trainerId,
         cycleStart: { $lte: cycleEnd },
         cycleEnd: { $gte: cycleStart },
+        status: { $nin: ['rejected', 'failed'] }
       })
       .lean();
 
