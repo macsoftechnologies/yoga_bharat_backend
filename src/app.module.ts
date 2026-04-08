@@ -26,6 +26,7 @@ import { InAppNotificationsModule } from './in-app-notifications/in-app-notifica
 import { PassedOrdersModule } from './passed_orders/passed_orders.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PaymentCyclesModule } from './payment_cycle/payment_cycle.module';
+import { SessionStatusModule } from './session-status/session-status.module';
 
 @Module({
   imports: [
@@ -61,7 +62,8 @@ import { PaymentCyclesModule } from './payment_cycle/payment_cycle.module';
     SessionsModule,
     InAppNotificationsModule,
     PassedOrdersModule,
-    PaymentCyclesModule
+    PaymentCyclesModule,
+    SessionStatusModule
   ],
   controllers: [AppController],
   providers: [

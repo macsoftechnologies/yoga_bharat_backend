@@ -23,6 +23,7 @@ import { orderAlertDto } from './dto/order_alert.dto';
 import { OrderAlert } from './schema/order_alert.schema';
 import { TrainerEvents } from 'src/users/schema/trainer_availability.schema';
 import { PassedOrders } from 'src/passed_orders/schema/passed_orders.schema';
+import { SessionStatus } from 'src/session-status/schema/session_status.schema';
 
 @Injectable()
 export class BookingService {
@@ -43,6 +44,8 @@ export class BookingService {
     private readonly inAppNotificationModel: Model<InAppNotifications>,
     @InjectModel(RoomSessions.name)
     private readonly roomSessionModel: Model<RoomSessions>,
+    @InjectModel(SessionStatus.name)
+    private readonly sessionStatusModel: Model<SessionStatus>,
     @InjectModel(OrderAlert.name)
     private readonly orderAlertModel: Model<OrderAlert>,
     @InjectModel(TrainerEvents.name)
@@ -626,6 +629,14 @@ export class BookingService {
             as: 'sessionDetails',
           },
         },
+        {
+          $lookup: {
+            from: 'sessionstatuses',
+            localField: 'bookingId',
+            foreignField: 'bookingId',
+            as: 'sessionStatus',
+          },
+        },
       );
 
       pipeline.push({
@@ -728,6 +739,15 @@ export class BookingService {
 
   async acceptBooking(req: bookingDto) {
     try {
+      const findBooking = await this.bookingModel.findOne({
+        bookingId: req.bookingId,
+      });
+      if (findBooking?.status == 'accepted') {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'Booking already accepted by another trainer',
+        };
+      }
       const accept = await this.bookingModel.updateOne(
         { bookingId: req.bookingId },
         {
@@ -746,9 +766,15 @@ export class BookingService {
             },
           },
         );
-        const findBooking = await this.bookingModel.findOne({
-          bookingId: req.bookingId,
-        });
+        const findBookingSessionStatus =
+          await this.sessionStatusModel.updateOne(
+            { bookingId: req.bookingId },
+            {
+              $set: {
+                trainerId: req.accepted_trainerId,
+              },
+            },
+          );
         let inappDto: any = {} as inAppNotificationsDto;
         const acceptNotification =
           await this.inappNotificationService.addInAppNotification({

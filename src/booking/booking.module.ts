@@ -20,6 +20,8 @@ import { RoomSessions, roomSessionSchema } from 'src/sessions/schema/sessions.sc
 import { OrderAlert, orderAlertSchema } from './schema/order_alert.schema';
 import { TrainerEvents, trainerEventSchema } from 'src/users/schema/trainer_availability.schema';
 import { PassedOrders, passedOrderSchema } from 'src/passed_orders/schema/passed_orders.schema';
+import { SessionStatus, sessionStatusSchema } from 'src/session-status/schema/session_status.schema';
+import { SessionStatusService } from 'src/session-status/session-status.service';
 
 @Module({
   imports: [
@@ -32,12 +34,13 @@ import { PassedOrders, passedOrderSchema } from 'src/passed_orders/schema/passed
       { name: YogaDetails.name, schema: yogaDetailsSchema },
       { name: InAppNotifications.name, schema: inappNotificationsSchema },
       { name: RoomSessions.name, schema: roomSessionSchema },
+      { name: SessionStatus.name, schema: sessionStatusSchema },
       { name: OrderAlert.name, schema: orderAlertSchema },
       { name: TrainerEvents.name, schema: trainerEventSchema },
       { name: PassedOrders.name, schema: passedOrderSchema },
     ]),
   ],
   controllers: [BookingController],
-  providers: [BookingService, SessionsService, InAppNotificationsService],
+  providers: [BookingService, SessionsService, InAppNotificationsService,SessionStatusService],
 })
 export class BookingModule {}
