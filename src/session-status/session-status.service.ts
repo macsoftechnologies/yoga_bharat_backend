@@ -12,7 +12,7 @@ export class SessionStatusService {
     private readonly sessionStatusModel: Model<SessionStatus>,
     @InjectModel(Booking.name)
     private readonly bookingModel: Model<Booking>,
-  ) {}
+  ) { }
 
   async createSessionStatus(req: Partial<sessionStatusDto>) {
     try {
@@ -70,15 +70,9 @@ export class SessionStatusService {
   async getDetails(req: sessionStatusDto) {
     try {
       const getdetails = await this.sessionStatusModel
-        .findOne({ clientId: req.clientId })
-        .sort({ created: -1 });
-      const getBookingStatus = await this.bookingModel.findOne({
-        bookingId: getdetails?.bookingId,
-      });
-      if (
-        getdetails &&
-        (getBookingStatus?.status != 'completed' || 'cancelled')
-      ) {
+        .findOne({ $and: [{ clientId: req.clientId }, { bookingId: req.bookingId }] });
+      
+      if (getdetails) {
         return {
           statusCode: HttpStatus.OK,
           message: 'Session status details',
