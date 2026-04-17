@@ -37,7 +37,7 @@ import { trainerAvailabilityDto } from './dto/trainer_availability.dto';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   // Starting of Health Preference APIs
 
@@ -297,10 +297,10 @@ export class UsersController {
 
   @Post('/sendotp')
   async sendOtpToUser(@Body() req: userDto) {
-    try{
+    try {
       const sendotp = await this.usersService.sendOtp(req);
       return sendotp
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message
@@ -411,38 +411,38 @@ export class UsersController {
   //   }
   // }
 
-// @UseGuards(JwtGuard, RolesGuard)
-// @Roles(Role.ADMIN)
-@Get('/clients')
-async getClientsList(
-  @Query('page') page: number = 1,
-  @Query('limit') limit: number = 10,
-  @Query('name') name?: string,
-  @Query('mobileNumber') mobileNumber?: string,
-  @Query('sortOrder') sortOrder?: string,
-  @Query('fromDate') fromDate?: string,
-  @Query('toDate') toDate?: string,
-  @Query('gender') gender?: string,
-  @Query('isExport') isExport?: string,
-) {
-  try {
-    const getlist = await this.usersService.getClients(+page, +limit, {
-      name,
-      mobileNumber,
-      sortOrder,
-      fromDate,
-      toDate,
-      gender,
-      isExport,
-    });
-    return getlist;
-  } catch (error) {
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: error,
-    };
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
+  @Get('/clients')
+  async getClientsList(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('name') name?: string,
+    @Query('mobileNumber') mobileNumber?: string,
+    @Query('sortOrder') sortOrder?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+    @Query('gender') gender?: string,
+    @Query('isExport') isExport?: string,
+  ) {
+    try {
+      const getlist = await this.usersService.getClients(+page, +limit, {
+        name,
+        mobileNumber,
+        sortOrder,
+        fromDate,
+        toDate,
+        gender,
+        isExport,
+      });
+      return getlist;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
   }
-}
 
   // // @UseGuards(JwtGuard, RolesGuard)
   // // @Roles(Role.ADMIN)
@@ -462,38 +462,38 @@ async getClientsList(
   //   }
   // }
 
-// @UseGuards(JwtGuard, RolesGuard)
-// @Roles(Role.ADMIN)
-@Get('/trainers')
-async getTrainersList(
-  @Query('page') page: number = 1,
-  @Query('limit') limit: number = 10,
-  @Query('name') name?: string,
-  @Query('mobileNumber') mobileNumber?: string,
-  @Query('sortOrder') sortOrder?: string,
-  @Query('fromDate') fromDate?: string,
-  @Query('toDate') toDate?: string,
-  @Query('isExport') isExport?: string,
-  @Query('gender') gender?: string,
-) {
-  try {
-    const getlist = await this.usersService.getTrainers(+page, +limit, {
-      name,
-      mobileNumber,
-      sortOrder,
-      fromDate,
-      toDate,
-      isExport,
-      gender
-    });
-    return getlist;
-  } catch (error) {
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: error,
-    };
+  // @UseGuards(JwtGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
+  @Get('/trainers')
+  async getTrainersList(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('name') name?: string,
+    @Query('mobileNumber') mobileNumber?: string,
+    @Query('sortOrder') sortOrder?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+    @Query('isExport') isExport?: string,
+    @Query('gender') gender?: string,
+  ) {
+    try {
+      const getlist = await this.usersService.getTrainers(+page, +limit, {
+        name,
+        mobileNumber,
+        sortOrder,
+        fromDate,
+        toDate,
+        isExport,
+        gender
+      });
+      return getlist;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
   }
-}
 
   // @UseGuards(JwtGuard, RolesGuard)
   // @Roles(Role.ADMIN)
@@ -559,6 +559,19 @@ async getTrainersList(
     try {
       const edituser = await this.usersService.editUser(req, image);
       return edituser;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @Post('/verifydeleteaccount')
+  async verifyUserAccount(@Body() req: userDeleteDto) {
+    try {
+      const removeuser = await this.usersService.verifyDeleteAccount(req);
+      return removeuser;
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -653,10 +666,10 @@ async getTrainersList(
 
   @Post('/addtrainerevent')
   async addEvent(@Body() req: trainerAvailabilityDto) {
-    try{
+    try {
       const add = await this.usersService.addTrainerAvailability(req);
       return add
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
@@ -666,10 +679,10 @@ async getTrainersList(
 
   @Post('/user_events')
   async getUserEvenst(@Body() req: trainerAvailabilityDto) {
-    try{
+    try {
       const getlist = await this.usersService.getTrainerEvents(req);
       return getlist
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,

@@ -28,6 +28,31 @@ export class SMSService {
     }
   }
 
+  async sendDeleteOtp(mobileNumber: string, otp: number): Promise<boolean> {
+    try {
+      const sendOTP = await axios.post(
+        `https://restapi.smscountry.com/v0.1/Accounts/${process.env.SMS_AUTH_KEY}/SMSes/`,
+        {
+          Text: `Your OTP for Yoga Bharath Account Deletion is ${otp}. Do not share this OTP with anyone.`,
+          Number: `91${mobileNumber}`,
+          SenderId: process.env.DELETE_SENDER_ID,
+        },
+        {
+          headers: {
+            Authorization: `Basic ${Buffer.from(
+              `${process.env.SMS_AUTH_KEY}:${process.env.PASSWORD}`,
+            ).toString('base64')}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      return !!sendOTP;
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      return false;
+    }
+  }
+
   // async sendBulkSms(
   //   mobileNumbers: string[],
   //   message: string,

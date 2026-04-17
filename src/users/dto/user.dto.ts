@@ -5,4 +5,6 @@ export class userDto{
     mobileNumber: string
     @ApiProperty()
     otp: string
+    @ApiProperty()
+    terms_check: boolean
 }

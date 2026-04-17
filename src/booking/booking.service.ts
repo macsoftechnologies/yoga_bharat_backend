@@ -153,7 +153,9 @@ export class BookingService {
       }
 
       const trainers = await this.userModel.find({
-        professional_details: req.yogaId,
+        professional_details: {
+          $regex: new RegExp(`(^|,)${req.yogaId}(,|$)`),
+        },
       });
       const allTrainerIds = trainers.map((trainer) => trainer.userId);
 
@@ -560,19 +562,23 @@ export class BookingService {
 
       let excludedBookingIds: string[] = [];
 
-      if (isStatusOpened && filters.trainerId) {
+      if (isStatusOpened && filters.accepted_trainerId) {
         const passedOrders = await this.passedOrderModel
-          .find({ trainerId: filters.trainerId }, { bookingId: 1, _id: 0 })
+          .find({ trainerId: filters.accepted_trainerId }, { bookingId: 1, _id: 0 })
           .lean();
 
         excludedBookingIds = passedOrders.map((order) => order.bookingId);
       }
 
-      // ✅ Exclude the removed bookingIds from the match stage
       if (excludedBookingIds.length > 0) {
-        match.bookingId = {
-          $nin: excludedBookingIds,
-        };
+        if (match.bookingId) {
+          match.bookingId = {
+            $eq: match.bookingId,
+            $nin: excludedBookingIds,
+          };
+        } else {
+          match.bookingId = { $nin: excludedBookingIds };
+        }
       }
 
       const pipeline: any[] = [{ $match: match }];
@@ -611,7 +617,20 @@ export class BookingService {
             as: 'yogaId',
           },
         },
-        { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+        {
+          $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true },
+        },
+        {
+          $addFields: {
+            yogaId: {
+              $cond: {
+                if: { $ne: ['$yogaId', null] },
+                then: '$yogaId',
+                else: '$$REMOVE',
+              },
+            },
+          },
+        },
         {
           $lookup: {
             from: 'languages',
@@ -620,7 +639,20 @@ export class BookingService {
             as: 'languageId',
           },
         },
-        { $unwind: { path: '$languageId', preserveNullAndEmptyArrays: true } },
+        {
+          $unwind: { path: '$languageId', preserveNullAndEmptyArrays: true },
+        },
+        {
+          $addFields: {
+            languageId: {
+              $cond: {
+                if: { $ne: ['$languageId', null] },
+                then: '$languageId',
+                else: '$$REMOVE',
+              },
+            },
+          },
+        },
         {
           $lookup: {
             from: 'roomsessions',
@@ -668,8 +700,6 @@ export class BookingService {
       if (Object.keys(nameMatch).length > 0) {
         pipeline.push({ $match: nameMatch });
       }
-
-      pipeline.push({ $sort: { createdAt: -1 } });
 
       const sortDirection = filters.sortOrder?.toLowerCase().startsWith('asc')
         ? 1
@@ -1809,14 +1839,37 @@ export class BookingService {
       const findTrainer = await this.userModel.aggregate([
         { $match: { userId: userId } },
         {
+          $addFields: {
+            professional_details_arr: {
+              $filter: {
+                input: {
+                  $split: [{ $ifNull: ['$professional_details', ''] }, ','],
+                },
+                as: 'item',
+                cond: { $ne: ['$$item', ''] },
+              },
+            },
+          },
+        },
+        {
           $lookup: {
             from: 'yogadetails',
-            localField: 'professional_details',
+            localField: 'professional_details_arr',
             foreignField: 'yogaId',
             as: 'yoga',
           },
         },
-        { $unwind: { path: '$yoga', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            yoga: {
+              $cond: {
+                if: { $gt: [{ $size: '$yoga' }, 0] },
+                then: '$yoga',
+                else: '$$REMOVE',
+              },
+            },
+          },
+        },
         {
           $lookup: {
             from: 'earnings',
@@ -2100,7 +2153,9 @@ export class BookingService {
           bookingId: req.bookingId,
         });
         const findTrainers = await this.userModel.find({
-          professional_details: findBooking?.yogaId,
+          professional_details: {
+            $regex: new RegExp(`(^|,)${findBooking?.yogaId}(,|$)`),
+          },
         });
         if (findBooking && findTrainers.length > 0) {
           const OrdersAlerts = findBooking?.trainerIds.map(async (trainer) => {

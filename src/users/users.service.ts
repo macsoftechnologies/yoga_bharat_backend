@@ -877,100 +877,146 @@ export class UsersService {
   //   }
   // }
 
-async getClients(page: number, limit: number, filters: any = {}) {
-  try {
-    const skip = (page - 1) * limit;
+  async getClients(page: number, limit: number, filters: any = {}) {
+    try {
+      const skip = (page - 1) * limit;
 
-    const pipeline: any[] = [];
+      const pipeline: any[] = [];
 
-    const match: any = { role: Role.CLIENT };
+      const match: any = { role: Role.CLIENT };
 
-    if (filters.gender) {
-      match.gender = { $regex: new RegExp(filters.gender, 'i') };
-    }
-
-    if (filters.fromDate || filters.toDate) {
-      match.createdAt = {};
-      if (filters.fromDate) {
-        match.createdAt.$gte = new Date(filters.fromDate);
+      if (filters.gender) {
+        match.gender = { $regex: new RegExp(filters.gender, 'i') };
       }
-      if (filters.toDate) {
-        const toDate = new Date(filters.toDate);
-        toDate.setHours(23, 59, 59, 999);
-        match.createdAt.$lte = toDate;
+
+      if (filters.fromDate || filters.toDate) {
+        match.createdAt = {};
+        if (filters.fromDate) {
+          match.createdAt.$gte = new Date(filters.fromDate);
+        }
+        if (filters.toDate) {
+          const toDate = new Date(filters.toDate);
+          toDate.setHours(23, 59, 59, 999);
+          match.createdAt.$lte = toDate;
+        }
       }
-    }
 
-    pipeline.push({ $match: match });
+      pipeline.push({ $match: match });
 
-    pipeline.push(
-      {
-        $lookup: {
-          from: 'healthpreferences',
-          localField: 'health_preference',
-          foreignField: 'prefId',
-          as: 'health_preference',
+      pipeline.push(
+        {
+          $addFields: {
+            health_preference_arr: {
+              $filter: {
+                input: {
+                  $map: {
+                    input: {
+                      $split: [{ $ifNull: ['$health_preference', ''] }, ','],
+                    },
+                    as: 'item',
+                    in: { $trim: { input: '$$item' } }, // ✅ VERY IMPORTANT
+                  },
+                },
+                as: 'item',
+                cond: { $ne: ['$$item', ''] },
+              },
+            },
+          },
         },
-      },
-    );
+        {
+          $lookup: {
+            from: 'healthpreferences',
+            let: { prefIds: '$health_preference_arr' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $in: ['$prefId', '$$prefIds'], // ✅ UUID match
+                  },
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  prefId: 1,
+                  preference_name: 1,
+                  preference_icon: 1,
+                },
+              },
+            ],
+            as: 'health_preference',
+          },
+        },
+        {
+          $addFields: {
+            health_preference: {
+              $cond: {
+                if: { $gt: [{ $size: '$health_preference' }, 0] },
+                then: '$health_preference',
+                else: [],
+              },
+            },
+          },
+        }
+      );
 
-    const searchMatch: any = {};
+      const searchMatch: any = {};
 
-    if (filters.name) {
-      searchMatch.name = { $regex: new RegExp(filters.name, 'i') };
-    }
+      if (filters.name) {
+        searchMatch.name = { $regex: new RegExp(filters.name, 'i') };
+      }
 
-    if (filters.mobileNumber) {
-      searchMatch.mobileNumber = {
-        $regex: new RegExp(filters.mobileNumber, 'i'),
-      };
-    }
+      if (filters.mobileNumber) {
+        searchMatch.mobileNumber = {
+          $regex: new RegExp(filters.mobileNumber, 'i'),
+        };
+      }
 
-    if (Object.keys(searchMatch).length > 0) {
-      pipeline.push({ $match: searchMatch });
-    }
+      if (Object.keys(searchMatch).length > 0) {
+        pipeline.push({ $match: searchMatch });
+      }
 
-    const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
-    pipeline.push({ $sort: { createdAt: sortDirection, _id: sortDirection } });
+      const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
+      pipeline.push({ $sort: { createdAt: sortDirection, _id: sortDirection } });
 
-    if (filters.isExport === 'true' || filters.isExport === true) {
-      const data = await this.userModel.aggregate(pipeline);
+      if (filters.isExport === 'true' || filters.isExport === true) {
+        const data = await this.userModel.aggregate(pipeline);
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Export data fetched successfully',
+          totalCount: data.length,
+          data,
+        };
+      }
+
+      pipeline.push({
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limit }],
+          totalCount: [{ $count: 'count' }],
+        },
+      });
+
+      const result = await this.userModel.aggregate(pipeline);
+
+      const getusers = result[0].data;
+      const totalCount = result[0].totalCount[0]?.count || 0;
+
       return {
         statusCode: HttpStatus.OK,
-        message: 'Export data fetched successfully',
-        totalCount: data.length,
-        data,
+        message: 'List of Clients',
+        currentPage: page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        data: getusers,
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message || error,
       };
     }
-
-    pipeline.push({
-      $facet: {
-        data: [{ $skip: skip }, { $limit: limit }],
-        totalCount: [{ $count: 'count' }],
-      },
-    });
-
-    const result = await this.userModel.aggregate(pipeline);
-
-    const getusers = result[0].data;
-    const totalCount = result[0].totalCount[0]?.count || 0;
-
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'List of Clients',
-      currentPage: page,
-      limit,
-      totalCount,
-      totalPages: Math.ceil(totalCount / limit),
-      data: getusers,
-    };
-  } catch (error) {
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: error.message || error,
-    };
   }
-}
 
   // async getTrainers(page: number, limit: number) {
   //   try {
@@ -1013,105 +1059,139 @@ async getClients(page: number, limit: number, filters: any = {}) {
   //   }
   // }
 
-async getTrainers(page: number, limit: number, filters: any = {}) {
-  try {
-    const skip = (page - 1) * limit;
+  async getTrainers(page: number, limit: number, filters: any = {}) {
+    try {
+      const skip = (page - 1) * limit;
 
-    const pipeline: any[] = [];
+      const pipeline: any[] = [];
 
-    // --- 1. Base match: only trainers ---
-    const match: any = { role: Role.TRAINER };
+      // --- 1. Base match: only trainers ---
+      const match: any = { role: Role.TRAINER };
 
-    if (filters.gender) {
-      match.gender = { $regex: new RegExp(filters.gender, 'i') };
-    }
-
-    // --- 2. Filter by date range on createdAt ---
-    if (filters.fromDate || filters.toDate) {
-      match.createdAt = {};
-      if (filters.fromDate) {
-        match.createdAt.$gte = new Date(filters.fromDate);
+      if (filters.gender) {
+        match.gender = { $regex: new RegExp(filters.gender, 'i') };
       }
-      if (filters.toDate) {
-        const toDate = new Date(filters.toDate);
-        toDate.setHours(23, 59, 59, 999);
-        match.createdAt.$lte = toDate;
+
+      // --- 2. Filter by date range on createdAt ---
+      if (filters.fromDate || filters.toDate) {
+        match.createdAt = {};
+        if (filters.fromDate) {
+          match.createdAt.$gte = new Date(filters.fromDate);
+        }
+        if (filters.toDate) {
+          const toDate = new Date(filters.toDate);
+          toDate.setHours(23, 59, 59, 999);
+          match.createdAt.$lte = toDate;
+        }
       }
-    }
 
-    pipeline.push({ $match: match });
+      pipeline.push({ $match: match });
 
-    // --- 3. Lookup yoga/professional details ---
-    pipeline.push({
-      $lookup: {
-        from: 'yogadetails',
-        localField: 'professional_details',
-        foreignField: 'yogaId',
-        as: 'professional_details',
-      },
-    });
 
-    // --- 4. Filter by name or mobileNumber ---
-    const searchMatch: any = {};
+      pipeline.push(
+        {
+          $addFields: {
+            professional_details_arr: {
+              $filter: {
+                input: {
+                  $split: [{ $ifNull: ['$professional_details', ''] }, ','],
+                },
+                as: 'item',
+                cond: { $ne: ['$$item', ''] },
+              },
+            },
+          },
+        },
+        // {
+        //   $lookup: {
+        //     from: 'yogadetails',
+        //     localField: 'professional_details',
+        //     foreignField: 'yogaId',
+        //     as: 'professional_details',
+        //   },
+        // }
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'professional_details_arr',
+            foreignField: 'yogaId',
+            as: 'professional_details',
+          },
+        },
+        {
+          $addFields: {
+            professional_details: {
+              $cond: {
+                if: { $gt: [{ $size: '$professional_details' }, 0] },
+                then: '$professional_details',
+                else: '$$REMOVE',
+              },
+            },
+          },
+        }
+      );
 
-    if (filters.name) {
-      searchMatch.name = { $regex: new RegExp(filters.name, 'i') };
-    }
+      // --- 4. Filter by name or mobileNumber ---
+      const searchMatch: any = {};
 
-    if (filters.mobileNumber) {
-      searchMatch.mobileNumber = {
-        $regex: new RegExp(filters.mobileNumber, 'i'),
-      };
-    }
+      if (filters.name) {
+        searchMatch.name = { $regex: new RegExp(filters.name, 'i') };
+      }
 
-    if (Object.keys(searchMatch).length > 0) {
-      pipeline.push({ $match: searchMatch });
-    }
+      if (filters.mobileNumber) {
+        searchMatch.mobileNumber = {
+          $regex: new RegExp(filters.mobileNumber, 'i'),
+        };
+      }
 
-    // --- 5. Sort ---
-    const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
-    pipeline.push({ $sort: { createdAt: sortDirection, _id: sortDirection } });
+      if (Object.keys(searchMatch).length > 0) {
+        pipeline.push({ $match: searchMatch });
+      }
 
-    // --- 6. If isExport, return all filtered data without pagination ---
-    if (filters.isExport === 'true' || filters.isExport === true) {
-      const data = await this.userModel.aggregate(pipeline);
+      // --- 5. Sort ---
+      const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
+      pipeline.push({ $sort: { createdAt: sortDirection, _id: sortDirection } });
+
+      // --- 6. If isExport, return all filtered data without pagination ---
+      if (filters.isExport === 'true' || filters.isExport === true) {
+        const data = await this.userModel.aggregate(pipeline);
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Export data fetched successfully',
+          totalCount: data.length,
+          data,
+        };
+      }
+
+      // --- 7. Paginated response using $facet ---
+      pipeline.push({
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limit }],
+          totalCount: [{ $count: 'count' }],
+        },
+      });
+
+      const result = await this.userModel.aggregate(pipeline);
+
+      const getusers = result[0].data;
+      const totalCount = result[0].totalCount[0]?.count || 0;
+
       return {
         statusCode: HttpStatus.OK,
-        message: 'Export data fetched successfully',
-        totalCount: data.length,
-        data,
+        message: 'List of Trainers',
+        currentPage: page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        data: getusers,
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message || error,
       };
     }
-
-    // --- 7. Paginated response using $facet ---
-    pipeline.push({
-      $facet: {
-        data: [{ $skip: skip }, { $limit: limit }],
-        totalCount: [{ $count: 'count' }],
-      },
-    });
-
-    const result = await this.userModel.aggregate(pipeline);
-
-    const getusers = result[0].data;
-    const totalCount = result[0].totalCount[0]?.count || 0;
-
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'List of Trainers',
-      currentPage: page,
-      limit,
-      totalCount,
-      totalPages: Math.ceil(totalCount / limit),
-      data: getusers,
-    };
-  } catch (error) {
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: error.message || error,
-    };
   }
-}
 
   async approveTrainer(req: trainerEKYCDto) {
     try {
@@ -1202,11 +1282,35 @@ async getTrainers(page: number, limit: number, filters: any = {}) {
   async getUserById(req: clientDto) {
     try {
       const findUser = await this.userModel.aggregate([
-        { $match: { userId: req.userId } },
+        {
+          $match: { userId: req.userId },
+        },
+        {
+          $addFields: {
+            health_preference_arr: {
+              $filter: {
+                input: {
+                  $split: [{ $ifNull: ['$health_preference', ''] }, ','],
+                },
+                as: 'item',
+                cond: { $ne: ['$$item', ''] },
+              },
+            },
+            professional_details_arr: {
+              $filter: {
+                input: {
+                  $split: [{ $ifNull: ['$professional_details', ''] }, ','],
+                },
+                as: 'item',
+                cond: { $ne: ['$$item', ''] },
+              },
+            },
+          },
+        },
         {
           $lookup: {
             from: 'healthpreferences',
-            localField: 'health_preference',
+            localField: 'health_preference_arr',
             foreignField: 'prefId',
             as: 'health_preference',
           },
@@ -1214,7 +1318,7 @@ async getTrainers(page: number, limit: number, filters: any = {}) {
         {
           $lookup: {
             from: 'yogadetails',
-            localField: 'professional_details',
+            localField: 'professional_details_arr',
             foreignField: 'yogaId',
             as: 'professional_details',
           },
@@ -1224,14 +1328,14 @@ async getTrainers(page: number, limit: number, filters: any = {}) {
             health_preference: {
               $cond: {
                 if: { $gt: [{ $size: '$health_preference' }, 0] },
-                then: { $arrayElemAt: ['$health_preference', 0] },
+                then: '$health_preference',
                 else: '$$REMOVE',
               },
             },
             professional_details: {
               $cond: {
                 if: { $gt: [{ $size: '$professional_details' }, 0] },
-                then: { $arrayElemAt: ['$professional_details', 0] },
+                then: '$professional_details',
                 else: '$$REMOVE',
               },
             },
@@ -1244,9 +1348,7 @@ async getTrainers(page: number, limit: number, filters: any = {}) {
             },
             journey_images: {
               $cond: {
-                if: {
-                  $gt: [{ $size: { $ifNull: ['$journey_images', []] } }, 0],
-                },
+                if: { $gt: [{ $size: { $ifNull: ['$journey_images', []] } }, 0] },
                 then: '$journey_images',
                 else: '$$REMOVE',
               },
@@ -1270,7 +1372,7 @@ async getTrainers(page: number, limit: number, filters: any = {}) {
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
+        message: error.message || error,
       };
     }
   }
@@ -1408,9 +1510,84 @@ async getTrainers(page: number, limit: number, filters: any = {}) {
     }
   }
 
+    async sendDeleteOtp(req: userDeleteDto) {
+    try {
+      const findUser = await this.userModel.findOne({
+        userId: req.userId,
+      });
+      // console.log('....user details', findUser);
+      if (findUser) {
+        const generatedOtp = Math.floor(100000 + Math.random() * 900000);
+
+        const updateOTP = await this.userModel.updateOne(
+          { userId: findUser.userId },
+          { $set: { otp: generatedOtp } },
+        );
+
+        if (updateOTP.modifiedCount <= 0) {
+          return {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: 'Unable to send OTP',
+          };
+        }
+
+        const otpSent = await this.smsService.sendDeleteOtp(
+          findUser.mobileNumber,
+          generatedOtp,
+        );
+
+        if (otpSent) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Sent OTP Successfully',
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.EXPECTATION_FAILED,
+            message: 'Failed to send OTP',
+          };
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'User not found',
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  async verifyDeleteAccount(req: userDeleteDto) {
+    try {
+      const findUser = await this.userModel.findOne({ userId: req.userId });
+      // console.log("....deleteuser", findUser);
+      if (!findUser) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'User not found',
+        };
+      }
+
+      const otpResponse = await this.sendDeleteOtp(req);
+
+      return otpResponse;
+
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Unable to verify',
+      };
+    }
+  }
+
   async deleteUser(req: userDeleteDto) {
     try {
-      if (req.otp == '1234') {
+      const findUser = await this.userModel.findOne({ userId: req.userId });
+      if (req.otp == findUser?.otp) {
         const deleteUser = await this.userModel.updateOne(
           { userId: req.userId },
           {
