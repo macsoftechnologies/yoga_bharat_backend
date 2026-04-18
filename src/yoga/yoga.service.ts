@@ -5,14 +5,17 @@ import { Model } from 'mongoose';
 import { YogaDetails } from './schema/yoga_details.schema';
 import { yogaDetailsDto } from './dto/yoga_details.dto';
 import { AuthService } from 'src/auth/auth.service';
+import { Category } from 'src/category/schema/category.schema';
 
 @Injectable()
 export class YogaService {
   constructor(
     @InjectModel(YogaDetails.name)
     private readonly yogaModel: Model<YogaDetails>,
+    @InjectModel(Category.name)
+    private readonly categoryModel: Model<Category>,
     private readonly authService: AuthService,
-  ) {}
+  ) { }
   async addYoga(req: yogaDetailsDto, image) {
     try {
       if (image) {
@@ -50,23 +53,43 @@ export class YogaService {
       };
     }
   }
-  async getYogaAll(page: number, limit: number) {
+  async getYogaAll(page: number, limit: number): Promise<object> {
     try {
       const skip = (page - 1) * limit;
 
       const [getList, totalCount] = await Promise.all([
-        this.yogaModel.find().skip(skip).limit(limit),
+        this.yogaModel.find().skip(skip).limit(limit).lean(),
         this.yogaModel.countDocuments(),
       ]);
+
+      // Extract unique categoryIds from yoga list
+      const categoryIds = [...new Set(getList.map((yoga) => yoga.categoryId))];
+
+      // Fetch all matching categories in one query
+      const categories = await this.categoryModel
+        .find({ categoryId: { $in: categoryIds } })
+        .lean();
+
+      // Map categories by categoryId string for O(1) lookup
+      const categoryMap = categories.reduce((acc, cat) => {
+        acc[cat.categoryId] = cat;
+        return acc;
+      }, {} as Record<string, any>);
+
+      // Merge category object into each yoga
+      const enrichedList = getList.map((yoga) => ({
+        ...yoga,
+        categoryId: categoryMap[yoga.categoryId] || null,
+      }));
 
       return {
         statusCode: HttpStatus.OK,
         message: 'List of Yoga Details',
-        totalCount: totalCount,
+        totalCount,
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
         limit,
-        data: getList,
+        data: enrichedList,
       };
     } catch (error) {
       return {
