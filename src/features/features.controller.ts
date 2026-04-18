@@ -24,7 +24,7 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Controller('feature')
 export class FeaturesController {
-  constructor(private readonly FeaturesService: FeaturesService) {}
+  constructor(private readonly FeaturesService: FeaturesService) { }
   // @UseGuards(JwtGuard, RolesGuard)
   // @Roles(Role.ADMIN)
   @Post('/add')
@@ -69,6 +69,20 @@ export class FeaturesController {
       };
     }
   }
+
+  @Post('/listbyusertype')
+  async getBannersthroughRole(@Body() req: featuresDto) {
+    try {
+      const getlist = await this.FeaturesService.getFeauredBannersByRole(req);
+      return getlist
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
   // @UseGuards(JwtGuard)
   @Post('/bannerbyid')
   async getFeaturesById(@Body() req: featuresDto) {

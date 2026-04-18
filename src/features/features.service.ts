@@ -83,6 +83,29 @@ export class FeaturesService {
     }
   }
 
+  async getFeauredBannersByRole(req: featuresDto) {
+    try{
+      const listbyrole = await this.featureModel.find({usertype: req.usertype});
+      if(listbyrole) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: "Banners list by role",
+          data: listbyrole
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "No banners found",
+        }
+      }
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
   async getFeaturesById(req: featuresDto) {
     try {
       const getfeatures = await this.featureModel.findOne({

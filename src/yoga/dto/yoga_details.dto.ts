@@ -19,4 +19,8 @@ export class yogaDetailsDto {
   duration: string
   @ApiProperty()
   categoryId: string
+  @ApiProperty()
+  benefits: string
+  @ApiProperty()
+  session_includes: string
 }

@@ -128,6 +128,8 @@ export class YogaService {
                 client_price: req.client_price,
                 trainer_price: req.trainer_price,
                 duration: req.duration,
+                benefits: req.benefits,
+                session_includes: req.session_includes
               },
             },
           );
@@ -155,6 +157,8 @@ export class YogaService {
                 client_price: req.client_price,
                 trainer_price: req.trainer_price,
                 duration: req.duration,
+                benefits: req.benefits,
+                session_includes: req.session_includes
               },
             },
           );
@@ -182,6 +186,8 @@ export class YogaService {
                 client_price: req.client_price,
                 trainer_price: req.trainer_price,
                 duration: req.duration,
+                benefits: req.benefits,
+                session_includes: req.session_includes
               },
             },
           );
@@ -208,6 +214,8 @@ export class YogaService {
               client_price: req.client_price,
               trainer_price: req.trainer_price,
               duration: req.duration,
+              benefits: req.benefits,
+              session_includes: req.session_includes
             },
           },
         );
