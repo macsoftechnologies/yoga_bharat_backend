@@ -152,7 +152,8 @@ export class YogaService {
                 trainer_price: req.trainer_price,
                 duration: req.duration,
                 benefits: req.benefits,
-                session_includes: req.session_includes
+                session_includes: req.session_includes,
+                categoryId: req.categoryId
               },
             },
           );
@@ -181,7 +182,8 @@ export class YogaService {
                 trainer_price: req.trainer_price,
                 duration: req.duration,
                 benefits: req.benefits,
-                session_includes: req.session_includes
+                session_includes: req.session_includes,
+                categoryId: req.categoryId
               },
             },
           );
@@ -210,7 +212,8 @@ export class YogaService {
                 trainer_price: req.trainer_price,
                 duration: req.duration,
                 benefits: req.benefits,
-                session_includes: req.session_includes
+                session_includes: req.session_includes,
+                categoryId: req.categoryId
               },
             },
           );
@@ -238,7 +241,8 @@ export class YogaService {
               trainer_price: req.trainer_price,
               duration: req.duration,
               benefits: req.benefits,
-              session_includes: req.session_includes
+              session_includes: req.session_includes,
+              categoryId: req.categoryId
             },
           },
         );
