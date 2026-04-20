@@ -21,4 +21,6 @@ export class trainerDto{
     role: string
     @ApiProperty()
     isDisabled: boolean
+    @ApiProperty()
+    istrainerOn: boolean
 }

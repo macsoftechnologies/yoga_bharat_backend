@@ -660,6 +660,7 @@ export class UsersService {
             professional_details: req.professional_details,
             profile_pic: req.profile_pic,
             role: Role.TRAINER,
+            istrainerOn: true
           },
         },
       );
@@ -815,6 +816,39 @@ export class UsersService {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
       };
+    }
+  }
+
+  async trainerOnOff(req: trainerDto) {
+    try {
+      const findUser = await this.userModel.findOne({userId: req.userId});
+      if(!findUser) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "Trainer not found",
+        }
+      }
+      const trainer_off = await this.userModel.updateOne({userId: req.userId}, {
+        $set: {
+          istrainerOn: req.istrainerOn
+        }
+      });
+      if(trainer_off.modifiedCount > 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: "Trainer availability captured"
+        }
+      } else {
+        return {
+          statusCodE: HttpStatus.EXPECTATION_FAILED,
+          message: "failed to update trainer availability"
+        }
+      }
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
     }
   }
 

@@ -2620,6 +2620,16 @@ export class BookingService {
         nowTotalSecondsIST + fiveMinInSeconds,
       );
 
+      const trainer = await this.userModel.findOne({ userId: req.trainerId });
+
+      if (!trainer || !trainer?.istrainerOn) {
+        return {
+          status: HttpStatus.OK,
+          message: 'Trainer is currently offline',
+          data: {},
+        };
+      }
+
       const getOrderAlert = await this.orderAlertModel.aggregate([
         {
           $match: {

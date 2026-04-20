@@ -393,6 +393,19 @@ export class UsersController {
     }
   }
 
+  @Post('/trainer_on_off')
+  async traineronoff(@Body() req: trainerDto) {
+    try{
+      const trainer_status = await this.usersService.trainerOnOff(req);
+      return trainer_status
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
   // // @UseGuards(JwtGuard, RolesGuard)
   // // @Roles(Role.ADMIN)
   // @Get('/clients')
