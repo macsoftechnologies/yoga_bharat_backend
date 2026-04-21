@@ -432,6 +432,8 @@ export class BookingService {
   async getBookings(page: number, limit: number, filters: any) {
     try {
       const skip = (page - 1) * limit;
+
+      // Clean up empty filter values
       Object.keys(filters).forEach((key) => {
         if (
           filters[key] === '' ||
@@ -441,41 +443,41 @@ export class BookingService {
           delete filters[key];
         }
       });
+
       const match: any = {};
       const isStatusOpened =
         filters.status && filters.status.toLowerCase() === 'opened';
 
-      if (filters.bookingId) match.bookingId = filters.bookingId;
-      if (filters.clientId) match.clientId = filters.clientId;
+      // ✅ FIX 1: Removed the trainer.professional_details → match.yogaId assignment
+      // that was corrupting the match stage and causing 0 results.
       if (filters.accepted_trainerId) {
         if (isStatusOpened) {
+          // For opened bookings, filter by trainerIds array (trainer hasn't accepted yet)
           match.trainerIds = filters.accepted_trainerId;
-
-          const trainer = await this.userModel
-            .findOne({ userId: filters.accepted_trainerId })
-            .lean();
-
-          console.log('professional_details:', trainer?.professional_details);
-
-          if (trainer?.professional_details) {
-            match.yogaId = trainer.professional_details;
-          }
         } else {
+          // For other statuses, filter by accepted_trainerId (trainer already accepted)
           match.accepted_trainerId = filters.accepted_trainerId;
         }
       }
+
+      if (filters.bookingId) match.bookingId = filters.bookingId;
+      if (filters.clientId) match.clientId = filters.clientId;
+
       if (filters.status) {
         match.status = {
           $regex: new RegExp(filters.status, 'i'),
         };
       }
+
       if (filters.time) match.time = filters.time;
+
       if (filters.bookingType) {
         match.bookingType = {
           $regex: new RegExp(filters.bookingType, 'i'),
         };
       }
 
+      // Date range filter
       if (filters.fromDate || filters.toDate) {
         const datePatterns: string[] = [];
 
@@ -485,53 +487,36 @@ export class BookingService {
         const formatDate = (date: Date): string => {
           const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
           const months = [
-            'Jan',
-            'Feb',
-            'Mar',
-            'Apr',
-            'May',
-            'Jun',
-            'Jul',
-            'Aug',
-            'Sep',
-            'Oct',
-            'Nov',
-            'Dec',
+            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
           ];
-
           const dayName = days[date.getDay()];
           const monthName = months[date.getMonth()];
           const day = date.getDate();
           const year = date.getFullYear();
-
           return `${dayName} ${monthName} ${day} ${year}`;
         };
 
         if (fromDate && toDate) {
           const current = new Date(fromDate);
           while (current <= toDate) {
-            const dateStr = formatDate(current);
-            datePatterns.push(dateStr);
+            datePatterns.push(formatDate(current));
             current.setDate(current.getDate() + 1);
           }
         } else if (fromDate) {
           const current = new Date(fromDate);
           const endDate = new Date(fromDate);
           endDate.setDate(endDate.getDate() + 365);
-
           while (current <= endDate) {
-            const dateStr = formatDate(current);
-            datePatterns.push(dateStr);
+            datePatterns.push(formatDate(current));
             current.setDate(current.getDate() + 1);
           }
         } else if (toDate) {
           const current = new Date(toDate);
           current.setDate(current.getDate() - 365);
           const endDate = new Date(toDate);
-
           while (current <= endDate) {
-            const dateStr = formatDate(current);
-            datePatterns.push(dateStr);
+            datePatterns.push(formatDate(current));
             current.setDate(current.getDate() + 1);
           }
         }
@@ -544,24 +529,25 @@ export class BookingService {
         }
       }
 
+      // Single scheduled date filter (only when no date range provided)
       if (filters.scheduledDate && !filters.fromDate && !filters.toDate) {
         const date = new Date(filters.scheduledDate);
-
         const options: Intl.DateTimeFormatOptions = { month: 'short' };
         const month = date.toLocaleString('en-US', options);
         const day = date.getDate();
         const year = date.getFullYear();
-
         const formattedDate = `${month} ${day} ${year}`;
-
         match.scheduledDate = {
           $regex: formattedDate,
           $options: 'i',
         };
       }
 
+      // ✅ FIX 2: Changed filters.trainerId → filters.accepted_trainerId
+      // so passed orders are correctly excluded when filtering opened bookings
       let excludedBookingIds: string[] = [];
 
+      if (isStatusOpened && filters.accepted_trainerId) {
       if (isStatusOpened && filters.accepted_trainerId) {
         const passedOrders = await this.passedOrderModel
           .find({ trainerId: filters.accepted_trainerId }, { bookingId: 1, _id: 0 })
@@ -581,9 +567,11 @@ export class BookingService {
         }
       }
 
+      // Build aggregation pipeline
       const pipeline: any[] = [{ $match: match }];
 
       pipeline.push(
+        // Join client details
         {
           $lookup: {
             from: 'users',
@@ -594,6 +582,7 @@ export class BookingService {
         },
         { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
 
+        // Join accepted trainer details
         {
           $lookup: {
             from: 'users',
@@ -609,6 +598,7 @@ export class BookingService {
           },
         },
 
+        // Join yoga details
         {
           $lookup: {
             from: 'yogadetails',
@@ -661,6 +651,8 @@ export class BookingService {
             as: 'sessionDetails',
           },
         },
+
+        // Join session status
         {
           $lookup: {
             from: 'sessionstatuses',
@@ -671,12 +663,14 @@ export class BookingService {
         },
       );
 
+      // Flatten sessionDetails to single object
       pipeline.push({
         $addFields: {
           sessionDetails: { $arrayElemAt: ['$sessionDetails', 0] },
         },
       });
 
+      // Post-lookup name filters
       const nameMatch: any = {};
 
       if (filters.clientName) {
@@ -704,10 +698,12 @@ export class BookingService {
       const sortDirection = filters.sortOrder?.toLowerCase().startsWith('asc')
         ? 1
         : -1;
+
       pipeline.push({
         $sort: { createdAt: sortDirection, _id: sortDirection },
       });
 
+      // Export mode — return all records without pagination
       if (filters.isExport === 'true' || filters.isExport === true) {
         const data = await this.bookingModel.aggregate(pipeline);
         return {
@@ -718,6 +714,7 @@ export class BookingService {
         };
       }
 
+      // Paginated mode
       pipeline.push({
         $facet: {
           data: [{ $skip: skip }, { $limit: limit }],
@@ -747,6 +744,297 @@ export class BookingService {
       };
     }
   }
+
+  // async getBookings(page: number, limit: number, filters: any) {
+  //   try {
+  //     const skip = (page - 1) * limit;
+  //     Object.keys(filters).forEach((key) => {
+  //       if (
+  //         filters[key] === '' ||
+  //         filters[key] === null ||
+  //         filters[key] === undefined
+  //       ) {
+  //         delete filters[key];
+  //       }
+  //     });
+  //     const match: any = {};
+  //     const isStatusOpened =
+  //       filters.status && filters.status.toLowerCase() === 'opened';
+
+  //     if (filters.bookingId) match.bookingId = filters.bookingId;
+  //     if (filters.clientId) match.clientId = filters.clientId;
+  //     if (filters.accepted_trainerId) {
+  //       if (isStatusOpened) {
+  //         match.trainerIds = filters.accepted_trainerId;
+
+  //         const trainer = await this.userModel
+  //           .findOne({ userId: filters.accepted_trainerId })
+  //           .lean();
+
+  //         console.log('professional_details:', trainer?.professional_details);
+
+  //         if (trainer?.professional_details) {
+  //           match.yogaId = trainer.professional_details;
+  //         }
+  //       } else {
+  //         match.accepted_trainerId = filters.accepted_trainerId;
+  //       }
+  //     }
+  //     if (filters.status) {
+  //       match.status = {
+  //         $regex: new RegExp(filters.status, 'i'),
+  //       };
+  //     }
+  //     if (filters.time) match.time = filters.time;
+  //     if (filters.bookingType) {
+  //       match.bookingType = {
+  //         $regex: new RegExp(filters.bookingType, 'i'),
+  //       };
+  //     }
+
+  //     if (filters.fromDate || filters.toDate) {
+  //       const datePatterns: string[] = [];
+
+  //       const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
+  //       const toDate = filters.toDate ? new Date(filters.toDate) : null;
+
+  //       const formatDate = (date: Date): string => {
+  //         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  //         const months = [
+  //           'Jan',
+  //           'Feb',
+  //           'Mar',
+  //           'Apr',
+  //           'May',
+  //           'Jun',
+  //           'Jul',
+  //           'Aug',
+  //           'Sep',
+  //           'Oct',
+  //           'Nov',
+  //           'Dec',
+  //         ];
+
+  //         const dayName = days[date.getDay()];
+  //         const monthName = months[date.getMonth()];
+  //         const day = date.getDate();
+  //         const year = date.getFullYear();
+
+  //         return `${dayName} ${monthName} ${day} ${year}`;
+  //       };
+
+  //       if (fromDate && toDate) {
+  //         const current = new Date(fromDate);
+  //         while (current <= toDate) {
+  //           const dateStr = formatDate(current);
+  //           datePatterns.push(dateStr);
+  //           current.setDate(current.getDate() + 1);
+  //         }
+  //       } else if (fromDate) {
+  //         const current = new Date(fromDate);
+  //         const endDate = new Date(fromDate);
+  //         endDate.setDate(endDate.getDate() + 365);
+
+  //         while (current <= endDate) {
+  //           const dateStr = formatDate(current);
+  //           datePatterns.push(dateStr);
+  //           current.setDate(current.getDate() + 1);
+  //         }
+  //       } else if (toDate) {
+  //         const current = new Date(toDate);
+  //         current.setDate(current.getDate() - 365);
+  //         const endDate = new Date(toDate);
+
+  //         while (current <= endDate) {
+  //           const dateStr = formatDate(current);
+  //           datePatterns.push(dateStr);
+  //           current.setDate(current.getDate() + 1);
+  //         }
+  //       }
+
+  //       if (datePatterns.length > 0) {
+  //         const regexPattern = datePatterns.join('|');
+  //         match.scheduledDate = {
+  //           $regex: new RegExp(regexPattern, 'i'),
+  //         };
+  //       }
+  //     }
+
+  //     if (filters.scheduledDate && !filters.fromDate && !filters.toDate) {
+  //       const date = new Date(filters.scheduledDate);
+
+  //       const options: Intl.DateTimeFormatOptions = { month: 'short' };
+  //       const month = date.toLocaleString('en-US', options);
+  //       const day = date.getDate();
+  //       const year = date.getFullYear();
+
+  //       const formattedDate = `${month} ${day} ${year}`;
+
+  //       match.scheduledDate = {
+  //         $regex: formattedDate,
+  //         $options: 'i',
+  //       };
+  //     }
+
+  //     let excludedBookingIds: string[] = [];
+
+  //     if (isStatusOpened && filters.trainerId) {
+  //       const passedOrders = await this.passedOrderModel
+  //         .find({ trainerId: filters.trainerId }, { bookingId: 1, _id: 0 })
+  //         .lean();
+
+  //       excludedBookingIds = passedOrders.map((order) => order.bookingId);
+  //     }
+
+  //     // ✅ Exclude the removed bookingIds from the match stage
+  //     if (excludedBookingIds.length > 0) {
+  //       match.bookingId = {
+  //         $nin: excludedBookingIds,
+  //       };
+  //     }
+
+  //     const pipeline: any[] = [{ $match: match }];
+
+  //     pipeline.push(
+  //       {
+  //         $lookup: {
+  //           from: 'users',
+  //           localField: 'clientId',
+  //           foreignField: 'userId',
+  //           as: 'clientId',
+  //         },
+  //       },
+  //       { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
+
+  //       {
+  //         $lookup: {
+  //           from: 'users',
+  //           localField: 'accepted_trainerId',
+  //           foreignField: 'userId',
+  //           as: 'accepted_trainerId',
+  //         },
+  //       },
+  //       {
+  //         $unwind: {
+  //           path: '$accepted_trainerId',
+  //           preserveNullAndEmptyArrays: true,
+  //         },
+  //       },
+
+  //       {
+  //         $lookup: {
+  //           from: 'yogadetails',
+  //           localField: 'yogaId',
+  //           foreignField: 'yogaId',
+  //           as: 'yogaId',
+  //         },
+  //       },
+  //       { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+  //       {
+  //         $lookup: {
+  //           from: 'languages',
+  //           localField: 'languageId',
+  //           foreignField: 'languageId',
+  //           as: 'languageId',
+  //         },
+  //       },
+  //       { $unwind: { path: '$languageId', preserveNullAndEmptyArrays: true } },
+  //       {
+  //         $lookup: {
+  //           from: 'roomsessions',
+  //           localField: 'bookingId',
+  //           foreignField: 'bookingId',
+  //           as: 'sessionDetails',
+  //         },
+  //       },
+  //       {
+  //         $lookup: {
+  //           from: 'sessionstatuses',
+  //           localField: 'bookingId',
+  //           foreignField: 'bookingId',
+  //           as: 'sessionStatus',
+  //         },
+  //       },
+  //     );
+
+  //     pipeline.push({
+  //       $addFields: {
+  //         sessionDetails: { $arrayElemAt: ['$sessionDetails', 0] },
+  //       },
+  //     });
+
+  //     const nameMatch: any = {};
+
+  //     if (filters.clientName) {
+  //       nameMatch['clientId.name'] = {
+  //         $regex: new RegExp(filters.clientName.trim(), 'i'),
+  //       };
+  //     }
+
+  //     if (filters.trainerName) {
+  //       nameMatch['accepted_trainerId.name'] = {
+  //         $regex: new RegExp(filters.trainerName.trim(), 'i'),
+  //       };
+  //     }
+
+  //     if (filters.yogaName) {
+  //       nameMatch['yogaId.yoga_name'] = {
+  //         $regex: new RegExp(filters.yogaName.trim(), 'i'),
+  //       };
+  //     }
+
+  //     if (Object.keys(nameMatch).length > 0) {
+  //       pipeline.push({ $match: nameMatch });
+  //     }
+
+  //     pipeline.push({ $sort: { createdAt: -1 } });
+
+  //     const sortDirection = filters.sortOrder?.toLowerCase().startsWith('asc')
+  //       ? 1
+  //       : -1;
+  //     pipeline.push({
+  //       $sort: { createdAt: sortDirection, _id: sortDirection },
+  //     });
+
+  //     if (filters.isExport === 'true' || filters.isExport === true) {
+  //       const data = await this.bookingModel.aggregate(pipeline);
+  //       return {
+  //         statusCode: 200,
+  //         message: 'Export data fetched successfully',
+  //         totalCount: data.length,
+  //         data,
+  //       };
+  //     }
+
+  //     pipeline.push({
+  //       $facet: {
+  //         data: [{ $skip: skip }, { $limit: limit }],
+  //         totalCount: [{ $count: 'count' }],
+  //       },
+  //     });
+
+  //     const result = await this.bookingModel.aggregate(pipeline);
+
+  //     const bookings = result[0].data;
+  //     const totalCount = result[0].totalCount[0]?.count || 0;
+
+  //     return {
+  //       statusCode: 200,
+  //       message: 'List of Bookings',
+  //       currentPage: page,
+  //       limit,
+  //       totalCount,
+  //       totalPages: Math.ceil(totalCount / limit),
+  //       data: bookings,
+  //     };
+  //   } catch (error) {
+  //     console.error('Error in getBookings:', error);
+  //     return {
+  //       statusCode: 500,
+  //       message: error.message || error,
+  //     };
+  //   }
+  // }
 
   async deleteBooking(req: bookingDto) {
     try {
