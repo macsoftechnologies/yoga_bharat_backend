@@ -100,7 +100,19 @@ export class YogaService {
   }
   async getYogaById(req: yogaDetailsDto) {
     try {
-      const getyoga = await this.yogaModel.findOne({ yogaId: req.yogaId });
+      // const getyoga = await this.yogaModel.findOne({ yogaId: req.yogaId });
+      const getyoga = await this.yogaModel.aggregate([
+        {$match: { yogaId: req.yogaId }},
+        {
+          $lookup: {
+            from: "categories",
+            localField: "categoryId",
+            foreignField: "categoryId",
+            as: "categoryId"
+          }
+        },
+        { $unwind: { path: '$categoryId', preserveNullAndEmptyArrays: true } },
+      ])
       if (getyoga) {
         return {
           statusCode: HttpStatus.OK,
