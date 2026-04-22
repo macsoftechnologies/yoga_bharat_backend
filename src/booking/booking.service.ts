@@ -85,6 +85,17 @@ export class BookingService {
   // test mode createbooking
   async createBooking(req: bookingDto) {
     try {
+      const existingBooking = await this.bookingModel.findOne({
+        transactionId: req.transactionId,
+      });
+      if (existingBooking) {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'A booking with this transaction ID already exists.',
+          data: existingBooking,
+        };
+      }
+
       const paymentDetails = await this.razorpay.payments.fetch(
         req.transactionId,
       );
@@ -101,8 +112,6 @@ export class BookingService {
 
       if (paymentDetails.status === 'authorized') {
         if (isTestMode && paymentDetails.method === 'upi') {
-          // ✅ Test mode UPI: force capture via dashboard-simulated API call
-          // Razorpay test mode UPI requires capturing before refund is possible
           try {
             const capturedPayment = await this.razorpay.payments.capture(
               req.transactionId,
@@ -111,15 +120,12 @@ export class BookingService {
             );
             console.log('Test UPI capture result:', capturedPayment.status);
           } catch (captureErr) {
-            // ⚠️ If capture fails in test mode (UPI limitation), proceed anyway
-            // In live mode this won't happen — UPI is auto-captured
             console.warn(
               'Test mode UPI capture skipped (API limitation):',
               captureErr?.error?.description,
             );
           }
         } else {
-          // ✅ Live mode or non-UPI — must capture successfully
           const capturedPayment = await this.razorpay.payments.capture(
             req.transactionId,
             Number(paymentDetails.amount),
@@ -140,31 +146,22 @@ export class BookingService {
         };
       }
 
-      // ✅ Prevent duplicate booking
-      const existingBooking = await this.bookingModel.findOne({
-        transactionId: req.transactionId,
-      });
-      if (existingBooking) {
-        return {
-          statusCode: HttpStatus.CONFLICT,
-          message: 'A booking with this transaction ID already exists.',
-          data: existingBooking,
-        };
-      }
-
       const trainers = await this.userModel.find({
-        professional_details: req.yogaId,
+        professional_details: {
+          $regex: new RegExp(`(^|,\\s*)${req.yogaId}(\\s*,|$)`),
+        },
       });
       const allTrainerIds = trainers.map((trainer) => trainer.userId);
 
       const bookingDate = new Date(req.scheduledDate);
-
       const availableTrainerIds = await this.filterAvailableTrainers(
         allTrainerIds,
         bookingDate,
       );
+
       const sAt = new Date(req.scheduledDate);
       const formattedTime = this.formatTimeToHHMMSS(req.time);
+
       const addbooking = await this.bookingModel.create({
         bookingType: req.bookingType,
         languageId: req.languageId,
@@ -177,18 +174,13 @@ export class BookingService {
         transactionId: req.transactionId,
         trainerIds: availableTrainerIds,
       });
+
       if (addbooking) {
         return {
           statusCode: HttpStatus.OK,
           message: 'Booking created successfully.',
           data: addbooking,
         };
-        //   }
-        // if (addbooking && bookingTrainers.length) {
-        //   await this.sendBookingNotificationToTrainers(
-        //     bookingTrainers,
-        //     addbooking,
-        //   );
       } else {
         return {
           statusCode: HttpStatus.EXPECTATION_FAILED,

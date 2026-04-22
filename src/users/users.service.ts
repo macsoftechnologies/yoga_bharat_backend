@@ -47,7 +47,7 @@ export class UsersService {
     @InjectModel(TrainerEvents.name)
     private readonly trainerEventsModel: Model<TrainerEvents>,
     private readonly smsService: SMSService,
-  ) {}
+  ) { }
 
   //  Starting of Health Preferences Apis
 
@@ -428,7 +428,7 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      if(findUser) {
+      if (findUser) {
         return {
           statusCode: HttpStatus.CONFLICT,
           message: "User Exisited. Please Login."
@@ -821,19 +821,19 @@ export class UsersService {
 
   async trainerOnOff(req: trainerDto) {
     try {
-      const findUser = await this.userModel.findOne({userId: req.userId});
-      if(!findUser) {
+      const findUser = await this.userModel.findOne({ userId: req.userId });
+      if (!findUser) {
         return {
           statusCode: HttpStatus.NOT_FOUND,
           message: "Trainer not found",
         }
       }
-      const trainer_off = await this.userModel.updateOne({userId: req.userId}, {
+      const trainer_off = await this.userModel.updateOne({ userId: req.userId }, {
         $set: {
           istrainerOn: req.istrainerOn
         }
       });
-      if(trainer_off.modifiedCount > 0) {
+      if (trainer_off.modifiedCount > 0) {
         return {
           statusCode: HttpStatus.OK,
           message: "Trainer availability captured"
@@ -844,7 +844,7 @@ export class UsersService {
           message: "failed to update trainer availability"
         }
       }
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
@@ -1128,7 +1128,13 @@ export class UsersService {
             professional_details_arr: {
               $filter: {
                 input: {
-                  $split: [{ $ifNull: ['$professional_details', ''] }, ','],
+                  $map: {
+                    input: {
+                      $split: [{ $ifNull: ['$professional_details', ''] }, ','],
+                    },
+                    as: 'item',
+                    in: { $trim: { input: '$$item' } }, // ✅ Add $trim
+                  },
                 },
                 as: 'item',
                 cond: { $ne: ['$$item', ''] },
@@ -1285,15 +1291,15 @@ export class UsersService {
   }
 
   async disableTrainer(req: trainerDto) {
-    try{
-      const findTrainer = await this.userModel.findOne({userId: req.userId});
-      if(findTrainer) {
-        const disableTrainer = await this.userModel.updateOne({userId: findTrainer.userId},{
+    try {
+      const findTrainer = await this.userModel.findOne({ userId: req.userId });
+      if (findTrainer) {
+        const disableTrainer = await this.userModel.updateOne({ userId: findTrainer.userId }, {
           $set: {
             isDisabled: req.isDisabled
           }
         });
-        if(disableTrainer) {
+        if (disableTrainer) {
           return {
             statusCode: HttpStatus.OK,
             message: "Trainer Disabled Sucessfully",
@@ -1305,7 +1311,7 @@ export class UsersService {
           }
         }
       }
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
@@ -1544,7 +1550,7 @@ export class UsersService {
     }
   }
 
-    async sendDeleteOtp(req: userDeleteDto) {
+  async sendDeleteOtp(req: userDeleteDto) {
     try {
       const findUser = await this.userModel.findOne({
         userId: req.userId,
