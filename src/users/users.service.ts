@@ -1337,7 +1337,13 @@ export class UsersService {
             health_preference_arr: {
               $filter: {
                 input: {
-                  $split: [{ $ifNull: ['$health_preference', ''] }, ','],
+                  $map: {
+                    input: {
+                      $split: [{ $ifNull: ['$health_preference', ''] }, ','],
+                    },
+                    as: 'item',
+                    in: { $trim: { input: '$$item' } }, // ✅ VERY IMPORTANT
+                  },
                 },
                 as: 'item',
                 cond: { $ne: ['$$item', ''] },
@@ -1346,7 +1352,13 @@ export class UsersService {
             professional_details_arr: {
               $filter: {
                 input: {
-                  $split: [{ $ifNull: ['$professional_details', ''] }, ','],
+                  $map: {
+                    input: {
+                      $split: [{ $ifNull: ['$professional_details', ''] }, ','],
+                    },
+                    as: 'item',
+                    in: { $trim: { input: '$$item' } }, // ✅ Add $trim
+                  },
                 },
                 as: 'item',
                 cond: { $ne: ['$$item', ''] },
