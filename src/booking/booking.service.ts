@@ -2381,81 +2381,79 @@ export class BookingService {
     }
   }
 
-  async sendInAppNotificationWithRoomDetails(req: userRoomDetialsDto) {
-    try {
-      const userDetails = await this.userModel.findOne({ userId: req.userId });
-      if (userDetails) {
-        await this.sessionsService.addroomsession({
-          ...req,
-          clientId: req.userId,
-        });
-        const findBooking = await this.bookingModel.findOne({
-          bookingId: req.bookingId,
-        });
-        const findTrainers = await this.userModel.find({
-          professional_details: findBooking?.yogaId,
-        });
-        if (findBooking && findTrainers.length > 0) {
-          const OrdersAlerts = findBooking?.trainerIds.map(async (trainer) => {
-            await this.orderAlertModel.create({
-              ...req,
-              bookingId: findBooking?.bookingId,
-              clientId: findBooking.clientId,
-              trainerId: trainer,
-              yogaId: findBooking.yogaId,
-            });
+async sendInAppNotificationWithRoomDetails(req: userRoomDetialsDto) {
+  try {
+    const userDetails = await this.userModel.findOne({ userId: req.userId });
+    if (userDetails) {
+      await this.sessionsService.addroomsession({
+        ...req,
+        clientId: req.userId,
+      });
+      const findBooking = await this.bookingModel.findOne({
+        bookingId: req.bookingId,
+      });
+
+      // ✅ FIXED: Use regex to match yogaId within comma-separated professional_details
+      const findTrainers = await this.userModel.find({
+        professional_details: {
+          $regex: new RegExp(`(^|,\\s*)${findBooking?.yogaId}(\\s*,|$)`),
+        },
+      });
+
+      if (findBooking && findTrainers.length > 0) {
+        const OrdersAlerts = findBooking?.trainerIds.map(async (trainer) => {
+          await this.orderAlertModel.create({
+            ...req,
+            bookingId: findBooking?.bookingId,
+            clientId: findBooking.clientId,
+            trainerId: trainer,
+            yogaId: findBooking.yogaId,
           });
-          if (OrdersAlerts) {
-            await findTrainers.map(async (trainer) => {
-              const addNotification =
-                await this.inappNotificationService.addInAppBookingNotification(
-                  {
-                    ...req,
-                    userId: trainer.userId,
-                    message:
-                      'There is a new yoga session booking. Please checkout.',
-                    type: 'booking',
-                    bookingId: req.bookingId,
-                  },
-                );
-              if (addNotification) {
-                await this.inAppNotificationModel.updateOne(
-                  {
-                    inapp_notification_id:
-                      addNotification.data?.inapp_notification_id,
-                  },
-                  {
-                    $set: {
-                      status: 'success',
-                    },
-                  },
-                );
-              }
-            });
-          }
-          return {
-            statusCode: HttpStatus.OK,
-            message: 'Sent Notifications to trainers',
-          };
-        } else {
-          return {
-            statusCode: HttpStatus.NOT_FOUND,
-            message: 'No Trainers Available for this yoga',
-          };
+        });
+        if (OrdersAlerts) {
+          await findTrainers.map(async (trainer) => {
+            const addNotification =
+              await this.inappNotificationService.addInAppBookingNotification({
+                ...req,
+                userId: trainer.userId,
+                message: 'There is a new yoga session booking. Please checkout.',
+                type: 'booking',
+                bookingId: req.bookingId,
+              });
+            if (addNotification) {
+              await this.inAppNotificationModel.updateOne(
+                {
+                  inapp_notification_id:
+                    addNotification.data?.inapp_notification_id,
+                },
+                { $set: { status: 'success' } },
+              );
+            }
+          });
         }
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Sent Notifications to trainers',
+        };
       } else {
         return {
           statusCode: HttpStatus.NOT_FOUND,
-          message: 'User not found',
+          message: 'No Trainers Available for this yoga',
         };
       }
-    } catch (error) {
+    } else {
       return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error.message,
+        statusCode: HttpStatus.NOT_FOUND,
+        message: 'User not found',
       };
     }
+  } catch (error) {
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: error.message,
+    };
   }
+}
 
   private getDateRange(dto: GetEarningsDto): { start: Date; end: Date } {
     const today = new Date();
