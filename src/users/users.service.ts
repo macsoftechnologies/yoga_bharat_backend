@@ -739,6 +739,8 @@ export class UsersService {
             journey_images: req.journey_images,
             yoga_video: req.yoga_video,
             ekyc_status: EKYCstatus.PENDING,
+            reject_reason: "",
+            reject_type: ""
           },
         },
       );
@@ -1242,6 +1244,8 @@ export class UsersService {
           {
             $set: {
               ekyc_status: req.ekyc_status,
+              reject_reason: req.reject_reason,
+              reject_type: req.reject_type
             },
           },
         );

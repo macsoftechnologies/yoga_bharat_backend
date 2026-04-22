@@ -18,5 +18,9 @@ export class trainerEKYCDto {
   @ApiProperty()
   account_branch: string;
   @ApiProperty()
-  branch_address: string
+  branch_address: string;
+  @ApiProperty()
+  reject_reason: string;
+  @ApiProperty()
+  reject_type: string;
 }

@@ -51,6 +51,10 @@ export class User extends Document {
   terms_check: boolean;
   @Prop()
   istrainerOn: boolean;
+  @Prop()
+  reject_reason: string;
+  @Prop()
+  reject_type: string;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);
