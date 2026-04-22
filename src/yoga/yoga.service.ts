@@ -53,30 +53,34 @@ export class YogaService {
       };
     }
   }
-  async getYogaAll(page: number, limit: number): Promise<object> {
+  
+  async getYogaAll(page: number, limit: number, categoryId?: string): Promise<object> {
     try {
       const skip = (page - 1) * limit;
 
+      
+      const filter = categoryId ? { categoryId } : {};
+
       const [getList, totalCount] = await Promise.all([
-        this.yogaModel.find().skip(skip).limit(limit).lean(),
-        this.yogaModel.countDocuments(),
+        this.yogaModel.find(filter).skip(skip).limit(limit).lean(),
+        this.yogaModel.countDocuments(filter),   
       ]);
 
-      // Extract unique categoryIds from yoga list
+      
       const categoryIds = [...new Set(getList.map((yoga) => yoga.categoryId))];
 
-      // Fetch all matching categories in one query
+      
       const categories = await this.categoryModel
         .find({ categoryId: { $in: categoryIds } })
         .lean();
 
-      // Map categories by categoryId string for O(1) lookup
+      
       const categoryMap = categories.reduce((acc, cat) => {
         acc[cat.categoryId] = cat;
         return acc;
       }, {} as Record<string, any>);
 
-      // Merge category object into each yoga
+      
       const enrichedList = getList.map((yoga) => ({
         ...yoga,
         categoryId: categoryMap[yoga.categoryId] || null,
@@ -98,11 +102,12 @@ export class YogaService {
       };
     }
   }
+
   async getYogaById(req: yogaDetailsDto) {
     try {
       // const getyoga = await this.yogaModel.findOne({ yogaId: req.yogaId });
       const getyoga = await this.yogaModel.aggregate([
-        {$match: { yogaId: req.yogaId }},
+        { $match: { yogaId: req.yogaId } },
         {
           $lookup: {
             from: "categories",
@@ -132,6 +137,7 @@ export class YogaService {
       };
     }
   }
+  
   async updateyogadetails(req: yogaDetailsDto, image) {
     try {
       const findYoga = await this.yogaModel.findOne({ yogaId: req.yogaId });

@@ -25,7 +25,7 @@ import { Roles } from 'src/auth/guards/roles.decorator';
 
 @Controller('yoga')
 export class YogaController {
-  constructor(private readonly yogaService: YogaService) {}
+  constructor(private readonly yogaService: YogaService) { }
   // @UseGuards(JwtGuard, RolesGuard)
   // @Roles(Role.ADMIN)
   @Post('/add')
@@ -45,11 +45,16 @@ export class YogaController {
   }
   // // @UseGuards(JwtGuard)
   @Get('/list')
-  async getYogaList(@Query('page') page = 1, @Query('limit') limit = 10) {
+  async getYogaList(
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('categoryId') categoryId?: string,
+  ) {
     try {
       const getlist = await this.yogaService.getYogaAll(
         Number(page),
         Number(limit),
+        categoryId,
       );
       return getlist;
     } catch (error) {
