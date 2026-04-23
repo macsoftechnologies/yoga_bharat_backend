@@ -2804,6 +2804,14 @@ async sendInAppNotificationWithRoomDetails(req: userRoomDetialsDto) {
 
   async addOrderAlerts(req: orderAlertDto) {
     try {
+      const findUser = await this.userModel.findOne({userId: req.trainerId});
+      if(findUser && !findUser.istrainerOn) {
+        return {
+        status: HttpStatus.OK,
+        message: 'Order Alert Details',
+        data: {},
+      };
+      }
       const now = new Date();
       const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
       const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
