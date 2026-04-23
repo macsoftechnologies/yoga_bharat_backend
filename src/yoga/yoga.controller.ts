@@ -46,14 +46,14 @@ export class YogaController {
   // // @UseGuards(JwtGuard)
   @Get('/list')
   async getYogaList(
-    @Query('page') page = 1,
-    @Query('limit') limit = 10,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('categoryId') categoryId?: string,
   ) {
     try {
       const getlist = await this.yogaService.getYogaAll(
-        Number(page),
-        Number(limit),
+        page ? Number(page) : undefined,
+        limit ? Number(limit) : undefined,
         categoryId,
       );
       return getlist;

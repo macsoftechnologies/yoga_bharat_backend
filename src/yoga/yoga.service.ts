@@ -53,34 +53,40 @@ export class YogaService {
       };
     }
   }
-  
-  async getYogaAll(page: number, limit: number, categoryId?: string): Promise<object> {
-    try {
-      const skip = (page - 1) * limit;
 
-      
+  async getYogaAll(page?: number, limit?: number, categoryId?: string): Promise<object> {
+    try {
       const filter = categoryId ? { categoryId } : {};
 
-      const [getList, totalCount] = await Promise.all([
-        this.yogaModel.find(filter).skip(skip).limit(limit).lean(),
-        this.yogaModel.countDocuments(filter),   
-      ]);
+      let getList: any[];
+      let totalCount: number;
 
-      
+      if (page && limit) {
+        // Paginated
+        const skip = (page - 1) * limit;
+        [getList, totalCount] = await Promise.all([
+          this.yogaModel.find(filter).skip(skip).limit(limit).lean(),
+          this.yogaModel.countDocuments(filter),
+        ]);
+      } else {
+        // No pagination — return all
+        [getList, totalCount] = await Promise.all([
+          this.yogaModel.find(filter).lean(),
+          this.yogaModel.countDocuments(filter),
+        ]);
+      }
+
       const categoryIds = [...new Set(getList.map((yoga) => yoga.categoryId))];
 
-      
       const categories = await this.categoryModel
         .find({ categoryId: { $in: categoryIds } })
         .lean();
 
-      
       const categoryMap = categories.reduce((acc, cat) => {
         acc[cat.categoryId] = cat;
         return acc;
       }, {} as Record<string, any>);
 
-      
       const enrichedList = getList.map((yoga) => ({
         ...yoga,
         categoryId: categoryMap[yoga.categoryId] || null,
@@ -90,9 +96,11 @@ export class YogaService {
         statusCode: HttpStatus.OK,
         message: 'List of Yoga Details',
         totalCount,
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / limit),
-        limit,
+        ...(page && limit && {
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / limit),
+          limit,
+        }),
         data: enrichedList,
       };
     } catch (error) {
@@ -137,7 +145,7 @@ export class YogaService {
       };
     }
   }
-  
+
   async updateyogadetails(req: yogaDetailsDto, image) {
     try {
       const findYoga = await this.yogaModel.findOne({ yogaId: req.yogaId });
