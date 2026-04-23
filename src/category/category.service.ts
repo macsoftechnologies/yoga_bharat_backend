@@ -111,4 +111,100 @@ export class CategoryService {
             };
         }
     }
+
+    async categoryStatus(req: categoryDto) {
+        try {
+            const findCategory = await this.categoryModel.findOne({ categoryId: req.categoryId });
+            if (!findCategory) {
+                return {
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "category not found"
+                }
+            }
+            const updatestatus = await this.categoryModel.updateOne({ categoryId: req.categoryId }, {
+                $set: {
+                    category_status: req.category_status
+                }
+            });
+            if (updatestatus.modifiedCount > 0) {
+                return {
+                    statusCode: HttpStatus.OK,
+                    message: "Category status updated successfully",
+                }
+            } else {
+                return {
+                    statusCode: HttpStatus.EXPECTATION_FAILED,
+                    message: "failed to update status",
+                }
+            }
+        } catch (error) {
+            return {
+                statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+                message: error.message,
+            }
+        }
+    }
+
+    async updateCategory(req: categoryDto) {
+        try {
+            const findCategory = await this.categoryModel.findOne({ categoryId: req.categoryId });
+            if (!findCategory) {
+                return {
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "category not found"
+                }
+            }
+            const updatestatus = await this.categoryModel.updateOne({ categoryId: req.categoryId }, {
+                $set: {
+                    category_name: req.category_name,
+                    category_status: req.category_status
+                }
+            });
+            if (updatestatus.modifiedCount > 0) {
+                return {
+                    statusCode: HttpStatus.OK,
+                    message: "Category status updated successfully",
+                }
+            } else {
+                return {
+                    statusCode: HttpStatus.EXPECTATION_FAILED,
+                    message: "failed to update status",
+                }
+            }
+        } catch (error) {
+            return {
+                statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+                message: error.message,
+            }
+        }
+    }
+
+    async deleteCategory(req: categoryDto) {
+        try {
+            const findCategory = await this.categoryModel.findOne({ categoryId: req.categoryId });
+            if (!findCategory) {
+                return {
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "category not found"
+                }
+            }
+            const deletecategory = await this.categoryModel.deleteOne({ categoryId: req.categoryId });
+            if (deletecategory) {
+                return {
+                    statusCode: HttpStatus.OK,
+                    message: "category deleted successfully",
+                }
+            } else {
+                return {
+                    statusCode: HttpStatus.EXPECTATION_FAILED,
+                    message: "failed to delete"
+                }
+            }
+        } catch (error) {
+            return {
+                statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+                message: error.message,
+            }
+        }
+    }
 }

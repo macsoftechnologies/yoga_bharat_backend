@@ -31,4 +31,43 @@ export class CategoryController {
   async getCategoryById(@Param('categoryId') categoryId: string): Promise<object> {
     return this.categoryService.getCategoryById(categoryId);
   }
+
+  @Post('/status_change')
+  async updateStatus(@Body() req: categoryDto) {
+    try {
+      const editstatus = await this.categoryService.categoryStatus(req);
+      return editstatus
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
+  @Post('/update')
+  async updateCategory(@Body() req: categoryDto) {
+    try {
+      const editcategory = await this.categoryService.updateCategory(req);
+      return editcategory
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
+  @Post('/delete')
+  async deleteCategory(@Body() req: categoryDto) {
+    try {
+      const remove_category = await this.categoryService.deleteCategory(req);
+      return remove_category
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
 }
