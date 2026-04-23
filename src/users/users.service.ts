@@ -428,7 +428,7 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      if(findUser?.isDisabled) {
+      if(findUser?.status == 'inactive') {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
           message: "User has been deactivated. Please contact Admin."
@@ -465,7 +465,7 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      if(findUser?.isDisabled) {
+      if(findUser?.status == "inactive") {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
           message: "User has been deactivated. Please contact admin."
