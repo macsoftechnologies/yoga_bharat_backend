@@ -549,7 +549,6 @@ export class UsersService {
     }
   }
 
-  //   verify otp
   async verifyOTP(req: userDto) {
     try {
       const findUser = await this.userModel.findOne({
@@ -869,65 +868,6 @@ export class UsersService {
     }
   }
 
-  // async getClients(page: number, limit: number) {
-  //   try {
-  //     const skip = (page - 1) * limit;
-
-  //     // --- 1. Total count ---
-  //     const totalCount = await this.userModel
-  //       .find({ role: Role.CLIENT })
-  //       .countDocuments();
-
-  //     // --- 2. Paginated aggregation ---
-  //     const getusers = await this.userModel.aggregate([
-  //       { $match: { role: Role.CLIENT } },
-  //       {
-  //         $lookup: {
-  //           from: 'healthpreferences',
-  //           localField: 'health_preference',
-  //           foreignField: 'prefId',
-  //           as: 'health_preference',
-  //         },
-  //       },
-  //       // {
-  //       //   $addFields: {
-  //       //     certificates: {
-  //       //       $cond: {
-  //       //         if: { $gt: [{ $size: '$certificates' }, 0] },
-  //       //         then: '$certificates',
-  //       //         else: '$$REMOVE',
-  //       //       },
-  //       //     },
-  //       //     journey_images: {
-  //       //       $cond: {
-  //       //         if: { $gt: [{ $size: '$journey_images' }, 0] },
-  //       //         then: '$journey_images',
-  //       //         else: '$$REMOVE',
-  //       //       },
-  //       //     },
-  //       //   },
-  //       // },
-  //       { $skip: skip },
-  //       { $limit: limit },
-  //     ]);
-
-  //     return {
-  //       statusCode: HttpStatus.OK,
-  //       message: 'List of Clients',
-  //       currentPage: page,
-  //       limit,
-  //       totalCount,
-  //       totalPages: Math.ceil(totalCount / limit),
-  //       data: getusers,
-  //     };
-  //   } catch (error) {
-  //     return {
-  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-  //       message: error.message || error,
-  //     };
-  //   }
-  // }
-
   async getClients(page: number, limit: number, filters: any = {}) {
     try {
       const skip = (page - 1) * limit;
@@ -1068,47 +1008,6 @@ export class UsersService {
       };
     }
   }
-
-  // async getTrainers(page: number, limit: number) {
-  //   try {
-  //     const skip = (page - 1) * limit;
-
-  //     // --- 1. Total count ---
-  //     const totalCount = await this.userModel
-  //       .find({ role: Role.TRAINER })
-  //       .countDocuments();
-
-  //     // --- 2. Paginated aggregation ---
-  //     const getusers = await this.userModel.aggregate([
-  //       { $match: { role: Role.TRAINER } },
-  //       {
-  //         $lookup: {
-  //           from: 'yogadetails',
-  //           localField: 'professional_details',
-  //           foreignField: 'yogaId',
-  //           as: 'professional_details',
-  //         },
-  //       },
-  //       { $skip: skip },
-  //       { $limit: limit },
-  //     ]);
-
-  //     return {
-  //       statusCode: HttpStatus.OK,
-  //       message: 'List of Trainers',
-  //       currentPage: page,
-  //       limit,
-  //       totalCount,
-  //       totalPages: Math.ceil(totalCount / limit),
-  //       data: getusers,
-  //     };
-  //   } catch (error) {
-  //     return {
-  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-  //       message: error.message || error,
-  //     };
-  //   }
-  // }
 
   async getTrainers(page: number, limit: number, filters: any = {}) {
     try {
@@ -1306,6 +1205,32 @@ export class UsersService {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
       };
+    }
+  }
+
+  async activateUser(req: userDto) {
+    try{
+      const activate = await this.userModel.updateOne({userId: req.userId},{
+        $set: {
+          status: "active"
+        }
+      });
+      if(activate.modifiedCount > 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: "User Activated Successfully",
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: "failed to activate"
+        }
+      }
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
     }
   }
 

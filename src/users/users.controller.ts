@@ -395,10 +395,10 @@ export class UsersController {
 
   @Post('/trainer_on_off')
   async traineronoff(@Body() req: trainerDto) {
-    try{
+    try {
       const trainer_status = await this.usersService.trainerOnOff(req);
       return trainer_status
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
@@ -515,6 +515,19 @@ export class UsersController {
     try {
       const accepttrainer = await this.usersService.approveTrainer(req);
       return accepttrainer;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
+  @Post('/activateuser')
+  async activate_user(@Body() req: userDto) {
+    try {
+      const activateuser = await this.usersService.activateUser(req);
+      return activateuser;
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

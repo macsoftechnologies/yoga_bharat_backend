@@ -7,4 +7,8 @@ export class userDto{
     otp: string
     @ApiProperty()
     terms_check: boolean
+    @ApiProperty()
+    status: string
+    @ApiProperty()
+    userId: string
 }
