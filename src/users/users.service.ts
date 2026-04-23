@@ -428,6 +428,12 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
+      if(findUser?.isDisabled) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: "User has been deactivated. Please contact Admin."
+        }
+      }
       if (findUser) {
         return {
           statusCode: HttpStatus.CONFLICT,
@@ -459,6 +465,12 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
+      if(findUser?.isDisabled) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: "User has been deactivated. Please contact admin."
+        }
+      }
       if (findUser && (findUser.role == 'trainer' || 'client')) {
         await this.sendOtp(req);
         return {
