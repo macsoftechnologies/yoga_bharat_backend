@@ -808,9 +808,6 @@ export class UsersService {
             ifsc_code: req.ifsc_code,
             account_branch: req.account_branch,
             branch_address: req.branch_address,
-            ekyc_status: EKYCstatus.PENDING,
-            reject_reason: "",
-            reject_type: ""
           },
         },
       );
