@@ -9,4 +9,6 @@ export class splashScreenDto {
   screen_type: string;
   @ApiProperty()
   screen_no: string;
+  @ApiProperty()
+  screen_image: string;
 }

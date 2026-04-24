@@ -5,7 +5,9 @@ import {
   HttpStatus,
   Post,
   Query,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { SplashScreenService } from './splash_screen.service';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
@@ -13,17 +15,34 @@ import { splashScreenDto } from './dto/splash_screen.dto';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Role } from 'src/auth/guards/roles.enum';
 import { Roles } from 'src/auth/guards/roles.decorator';
+import { extname } from 'path';
+import { diskStorage } from 'multer';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
 
 @Controller('splashscreen')
 export class SplashScreenController {
-  constructor(private readonly splashScreenService: SplashScreenService) {}
+  constructor(private readonly splashScreenService: SplashScreenService) { }
 
   // @UseGuards(JwtGuard, RolesGuard)
   // @Roles(Role.ADMIN)
   @Post('/add')
-  async addSplashScreen(@Body() req: splashScreenDto) {
+  @UseInterceptors(
+    AnyFilesInterceptor({
+      storage: diskStorage({
+        destination: './files',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  async addSplashScreen(@Body() req: splashScreenDto, @UploadedFiles() image) {
     try {
-      const add = await this.splashScreenService.addSplashScreen(req);
+      const add = await this.splashScreenService.addSplashScreen(req, image);
 
       return add;
     } catch (error) {
@@ -65,9 +84,23 @@ export class SplashScreenController {
   // @UseGuards(JwtGuard, RolesGuard)
   // @Roles(Role.ADMIN)
   @Post('/update')
-  async updateSplashScreen(@Body() req: splashScreenDto) {
+  @UseInterceptors(
+    AnyFilesInterceptor({
+      storage: diskStorage({
+        destination: './files',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  async updateSplashScreen(@Body() req: splashScreenDto, @UploadedFiles() image) {
     try {
-      const update = await this.splashScreenService.updateSplashScreen(req);
+      const update = await this.splashScreenService.updateSplashScreen(req, image);
       return update;
     } catch (error) {
       return {

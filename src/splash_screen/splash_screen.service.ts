@@ -9,9 +9,21 @@ export class SplashScreenService {
   constructor(
     @InjectModel(SplashScreen.name)
     private readonly splashModel: Model<SplashScreen>,
-  ) {}
-  async addSplashScreen(req: splashScreenDto) {
+  ) { }
+  async addSplashScreen(req: splashScreenDto, image) {
     try {
+      if (image) {
+        const reqDoc = image.map((doc, index) => {
+          let IsPrimary = false;
+          if (index == 0) {
+            IsPrimary = true;
+          }
+          const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+          return doc.filename;
+        });
+
+        req.screen_image = reqDoc.toString();
+      }
       const add = await this.splashModel.create(req);
       if (add) {
         return {
@@ -83,29 +95,132 @@ export class SplashScreenService {
     }
   }
 
-  async updateSplashScreen(req: splashScreenDto) {
+  // async updateSplashScreen(req: splashScreenDto, image) {
+  //   try {
+  //     if (req.screen_image) {
+  //       if (image) {
+  //         const reqDoc = image.map((doc, index) => {
+  //           let IsPrimary = false;
+  //           if (index == 0) {
+  //             IsPrimary = true;
+  //           }
+  //           const randomNumber = Math.floor(Math.random() * 1000000 + 1);
+  //           return doc.filename;
+  //         });
+
+  //         req.screen_image = reqDoc.toString();
+  //       }
+  //       const update = await this.splashModel.updateOne(
+  //         { splashscreenId: req.splashscreenId },
+  //         {
+  //           $set: {
+  //             text: req.text,
+  //             screen_type: req.screen_type,
+  //             screen_no: req.screen_no,
+  //             screen_image: req.screen_image
+  //           },
+  //         },
+  //       );
+  //       if (update) {
+  //         return {
+  //           statusCode: HttpStatus.OK,
+  //           message: 'Splash Screen updated successfully',
+  //           data: update,
+  //         };
+  //       } else {
+  //         return {
+  //           statusCode: HttpStatus.NOT_FOUND,
+  //           message: 'Splash Screen not found',
+  //         };
+  //       }
+  //     } else {
+  //       const update = await this.splashModel.updateOne(
+  //         { splashscreenId: req.splashscreenId },
+  //         {
+  //           $set: {
+  //             text: req.text,
+  //             screen_type: req.screen_type,
+  //             screen_no: req.screen_no,
+  //           },
+  //         },
+  //       );
+  //       if (update) {
+  //         return {
+  //           statusCode: HttpStatus.OK,
+  //           message: 'Splash Screen updated successfully',
+  //           data: update,
+  //         };
+  //       } else {
+  //         return {
+  //           statusCode: HttpStatus.NOT_FOUND,
+  //           message: 'Splash Screen not found',
+  //         };
+  //       }
+  //     }
+  //   } catch (error) {
+  //     return {
+  //       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+  //       message: error,
+  //     };
+  //   }
+  // }
+
+  async updateSplashScreen(req: splashScreenDto, image) {
     try {
-      const update = await this.splashModel.updateOne(
-        { splashscreenId: req.splashscreenId },
-        {
-          $set: {
-            text: req.text,
-            screen_type: req.screen_type,
-            screen_no: req.screen_no,
+      // ✅ Check the uploaded files array, not the DTO field
+      if (image && image.length > 0) {
+        const reqDoc = image.map((doc) => doc.filename);
+        req.screen_image = reqDoc.toString();
+
+        const update = await this.splashModel.updateOne(
+          { splashscreenId: req.splashscreenId },
+          {
+            $set: {
+              text: req.text,
+              screen_type: req.screen_type,
+              screen_no: req.screen_no,
+              screen_image: req.screen_image, // ✅ Now correctly set
+            },
           },
-        },
-      );
-      if (update) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'Splash Screen updated successfully',
-          data: update,
-        };
+        );
+
+        if (update) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Splash Screen updated successfully',
+            data: update,
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.NOT_FOUND,
+            message: 'Splash Screen not found',
+          };
+        }
       } else {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'Splash Screen not found',
-        };
+        // No new image uploaded — update other fields only
+        const update = await this.splashModel.updateOne(
+          { splashscreenId: req.splashscreenId },
+          {
+            $set: {
+              text: req.text,
+              screen_type: req.screen_type,
+              screen_no: req.screen_no,
+            },
+          },
+        );
+
+        if (update) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Splash Screen updated successfully',
+            data: update,
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.NOT_FOUND,
+            message: 'Splash Screen not found',
+          };
+        }
       }
     } catch (error) {
       return {
@@ -147,7 +262,7 @@ export class SplashScreenService {
       if (findScreens) {
         return {
           statusCode: HttpStatus.OK,
-          message: `SplashScreen Tesxt of ${req.screen_no} for ${req.screen_type}. `,
+          message: `SplashScreen of ${req.screen_no} for ${req.screen_type}. `,
           data: findScreens,
         };
       } else {
