@@ -160,4 +160,30 @@ export class SMSService {
       return false;
     }
   }
+
+  async sendmessage(mobileNumber: string): Promise<boolean> {
+    try {
+      const sendOTP = await axios.post(
+        `https://restapi.smscountry.com/v0.1/Accounts/${process.env.SMS_AUTH_KEY}/SMSes/`,
+        {
+          Text: `Yoga Bharath: Your trainer profile has been rejected. Please check the app for further details.`,
+          Number: `91${mobileNumber}`,
+          SenderId: process.env.SENDER_ID,
+          DLTTemplateId: process.env.EKYC_REJECT_TEMPLATE,
+        },
+        {
+          headers: {
+            Authorization: `Basic ${Buffer.from(
+              `${process.env.SMS_AUTH_KEY}:${process.env.PASSWORD}`,
+            ).toString('base64')}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      return !!sendOTP;
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      return false;
+    }
+  }
 }

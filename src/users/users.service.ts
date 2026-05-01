@@ -428,7 +428,7 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      if(findUser?.status == 'inactive') {
+      if (findUser?.status == 'inactive') {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
           message: "User has been deactivated. Please contact Admin."
@@ -465,7 +465,7 @@ export class UsersService {
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
-      if(findUser?.status == "inactive") {
+      if (findUser?.status == "inactive") {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
           message: "User has been deactivated. Please contact admin."
@@ -1160,7 +1160,7 @@ export class UsersService {
             },
           },
         );
-        if (approvetrainer) {
+        if (approvetrainer && req.ekyc_status == 'approved') {
           const sendNotification =
             await this.inappNotificationService.addInAppBookingNotification({
               ...req,
@@ -1185,10 +1185,39 @@ export class UsersService {
             statusCode: HttpStatus.OK,
             message: 'Trainer EKYC Approved Successfully',
           };
+        } else if (approvetrainer && req.ekyc_status == 'rejected') {
+          const findUser: any = await this.userModel.findOne({userId: req.userId});
+          await this.smsService.sendmessage(
+            findUser?.mobileNumber,
+          );
+          const sendNotification =
+            await this.inappNotificationService.addInAppBookingNotification({
+              ...req,
+              userId: req.userId,
+              message: 'Your ekyc has been rejected. Please re-upload your details.',
+              type: 'add_trainer',
+            });
+          if (sendNotification) {
+            await this.inAppNotificationModel.updateOne(
+              {
+                inapp_notification_id:
+                  sendNotification.data?.inapp_notification_id,
+              },
+              {
+                $set: {
+                  status: 'success',
+                },
+              },
+            );
+          }
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Trainer EKYC Rejected Successfully',
+          };
         } else {
           return {
             statusCode: HttpStatus.EXPECTATION_FAILED,
-            message: 'Failed to Approve Trainer EKYC',
+            message: 'Failed to Approve?Reject Trainer EKYC',
           };
         }
       } else {
@@ -1206,13 +1235,13 @@ export class UsersService {
   }
 
   async activateUser(req: userDto) {
-    try{
-      const activate = await this.userModel.updateOne({userId: req.userId},{
+    try {
+      const activate = await this.userModel.updateOne({ userId: req.userId }, {
         $set: {
           status: "active"
         }
       });
-      if(activate.modifiedCount > 0) {
+      if (activate.modifiedCount > 0) {
         return {
           statusCode: HttpStatus.OK,
           message: "User Activated Successfully",
@@ -1223,7 +1252,7 @@ export class UsersService {
           message: "failed to activate"
         }
       }
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
