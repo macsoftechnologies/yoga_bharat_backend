@@ -22,10 +22,11 @@ import { DashboardStatsDto } from './dto/Dashboardstats.dto';
 import { userRoomDetialsDto } from './dto/userRoomDetails.dto';
 import { GetEarningsDto } from './dto/getearnings.dto';
 import { orderAlertDto } from './dto/order_alert.dto';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Controller('booking')
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) {}
+  constructor(private readonly bookingService: BookingService) { }
 
   // @UseGuards(JwtGuard)
   @Post('/createbooking')
@@ -301,6 +302,23 @@ export class BookingController {
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  // @Get('/test-cron')
+  async testCron() {
+    try {
+      const result = await this.bookingService.autoCancelExpiredBookings();
+      return {
+        statusCode: 200,
+        message: 'Cron executed manually',
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
         message: error.message,
       };
     }

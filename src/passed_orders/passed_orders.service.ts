@@ -3,18 +3,38 @@ import { InjectModel } from '@nestjs/mongoose';
 import { PassedOrders } from './schema/passed_orders.schema';
 import { Model } from 'mongoose';
 import { passedOrdersDto } from './dto/passed_orders.dto';
+import { Booking } from 'src/booking/schema/booking.schema';
+import { OrderAlert } from 'src/booking/schema/order_alert.schema';
 
 @Injectable()
 export class PassedOrdersService {
   constructor(
     @InjectModel(PassedOrders.name)
     private readonly passedOrdersModel: Model<PassedOrders>,
-  ) {}
+    @InjectModel(Booking.name)
+    private readonly bookingModel: Model<Booking>,
+    @InjectModel(OrderAlert.name)
+    private readonly orderAlertModel: Model<OrderAlert>,
+  ) { }
 
   async createPassedOrder(req: passedOrdersDto) {
     try {
       const add = await this.passedOrdersModel.create(req);
       if (add) {
+        const findBooking = await this.bookingModel.findOne({ bookingId: req.bookingId });
+        if (findBooking?.status == 'accepted') {
+          await this.bookingModel.updateOne({ bookingId: req.bookingId }, {
+            $set: {
+              status: 'opened',
+              accepted_trainerId: '',
+            }
+          })
+          await this.orderAlertModel.updateMany({bookingId: req.bookingId},{
+            $set: {
+              status: 'pending'
+            }
+          })
+        }
         return {
           statusCode: HttpStatus.OK,
           message: 'Passed Order Added successfully',

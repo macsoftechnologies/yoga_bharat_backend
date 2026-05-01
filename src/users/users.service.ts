@@ -1625,11 +1625,6 @@ export class UsersService {
       }
       const add = await this.certificateModel.create(req);
       if (add) {
-        await this.userModel.updateOne({userId: req.userId},{
-          $set: {
-            ekyc_status: EKYCstatus.PENDING
-          }
-        })
         return {
           statusCode: HttpStatus.OK,
           message: 'Certificate added successfully',
