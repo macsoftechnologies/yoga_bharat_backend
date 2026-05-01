@@ -1186,7 +1186,7 @@ export class UsersService {
             message: 'Trainer EKYC Approved Successfully',
           };
         } else if (approvetrainer && req.ekyc_status == 'rejected') {
-          const findUser: any = await this.userModel.findOne({userId: req.userId});
+          const findUser: any = await this.userModel.findOne({ userId: req.userId });
           await this.smsService.sendmessage(
             findUser?.mobileNumber,
           );
@@ -1305,7 +1305,7 @@ export class UsersService {
                       $split: [{ $ifNull: ['$health_preference', ''] }, ','],
                     },
                     as: 'item',
-                    in: { $trim: { input: '$$item' } }, // ✅ VERY IMPORTANT
+                    in: { $trim: { input: '$$item' } },
                   },
                 },
                 as: 'item',
@@ -1320,7 +1320,7 @@ export class UsersService {
                       $split: [{ $ifNull: ['$professional_details', ''] }, ','],
                     },
                     as: 'item',
-                    in: { $trim: { input: '$$item' } }, // ✅ Add $trim
+                    in: { $trim: { input: '$$item' } },
                   },
                 },
                 as: 'item',
@@ -1370,11 +1370,119 @@ export class UsersService {
             },
             journey_images: {
               $cond: {
-                if: { $gt: [{ $size: { $ifNull: ['$journey_images', []] } }, 0] },
+                if: {
+                  $gt: [{ $size: { $ifNull: ['$journey_images', []] } }, 0],
+                },
                 then: '$journey_images',
                 else: '$$REMOVE',
               },
             },
+          },
+        },
+
+        {
+          $lookup: {
+            from: 'ratings',
+            let: { trainerId: '$userId' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$trainerId', '$$trainerId'] },
+                },
+              },
+              {
+                $lookup: {
+                  from: 'users',
+                  localField: 'clientId',
+                  foreignField: 'userId',
+                  as: 'clientDetails',
+                },
+              },
+              {
+                $unwind: {
+                  path: '$clientDetails',
+                  preserveNullAndEmptyArrays: true,
+                },
+              },
+              {
+                $lookup: {
+                  from: 'yogadetails',
+                  localField: 'yogaId',
+                  foreignField: 'yogaId',
+                  as: 'yogaDetails',
+                },
+              },
+              {
+                $unwind: {
+                  path: '$yogaDetails',
+                  preserveNullAndEmptyArrays: true,
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  ratingId: 1,
+                  bookingId: 1,
+                  rating: 1,
+                  review: 1,
+                  createdAt: 1,
+                  client: {
+                    userId: '$clientDetails.userId',
+                    name: '$clientDetails.name',
+                    profileImage: '$clientDetails.profileImage',
+                  },
+                  yoga: {
+                    yogaId: '$yogaDetails.yogaId',
+                    yoga_name: '$yogaDetails.yoga_name',
+                    yoga_image: '$yogaDetails.yoga_image',
+                  },
+                },
+              },
+            ],
+            as: 'ratingsRaw',
+          },
+        },
+
+        {
+          $addFields: {
+            ratings: {
+              $cond: {
+                if: { $eq: ['$role', 'trainer'] },
+                then: {
+                  overallAverage: {
+                    $cond: {
+                      if: { $gt: [{ $size: '$ratingsRaw' }, 0] },
+                      then: {
+                        $round: [
+                          {
+                            $avg: {
+                              $map: {
+                                input: '$ratingsRaw',
+                                as: 'r',
+                                in: { $toDouble: '$$r.rating' },
+                              },
+                            },
+                          },
+                          1,
+                        ],
+                      },
+                      else: null,
+                    },
+                  },
+                  totalRatings: { $size: '$ratingsRaw' },
+                  list: '$ratingsRaw',
+                },
+                else: '$$REMOVE',
+              },
+            },
+          },
+        },
+
+        {
+          $project: {
+            ratingsRaw: 0,
+            health_preference_arr: 0,
+            professional_details_arr: 0,
           },
         },
       ]);

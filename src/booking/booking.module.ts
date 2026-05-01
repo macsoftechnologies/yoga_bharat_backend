@@ -22,6 +22,7 @@ import { TrainerEvents, trainerEventSchema } from 'src/users/schema/trainer_avai
 import { PassedOrders, passedOrderSchema } from 'src/passed_orders/schema/passed_orders.schema';
 import { SessionStatus, sessionStatusSchema } from 'src/session-status/schema/session_status.schema';
 import { SessionStatusService } from 'src/session-status/session-status.service';
+import { Rating, ratingSchema } from 'src/ratings/schema/rating.schema';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SessionStatusService } from 'src/session-status/session-status.service'
       { name: OrderAlert.name, schema: orderAlertSchema },
       { name: TrainerEvents.name, schema: trainerEventSchema },
       { name: PassedOrders.name, schema: passedOrderSchema },
+      { name: Rating.name, schema: ratingSchema },
     ]),
   ],
   controllers: [BookingController],

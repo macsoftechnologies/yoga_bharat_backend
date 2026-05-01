@@ -28,6 +28,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PaymentCyclesModule } from './payment_cycle/payment_cycle.module';
 import { SessionStatusModule } from './session-status/session-status.module';
 import { CategoryModule } from './category/category.module';
+import { RatingsModule } from './ratings/ratings.module';
 
 @Module({
   imports: [
@@ -65,7 +66,8 @@ import { CategoryModule } from './category/category.module';
     PassedOrdersModule,
     PaymentCyclesModule,
     SessionStatusModule,
-    CategoryModule
+    CategoryModule,
+    RatingsModule
   ],
   controllers: [AppController],
   providers: [

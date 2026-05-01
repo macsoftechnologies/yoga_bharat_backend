@@ -24,6 +24,7 @@ import { OrderAlert } from './schema/order_alert.schema';
 import { TrainerEvents } from 'src/users/schema/trainer_availability.schema';
 import { PassedOrders } from 'src/passed_orders/schema/passed_orders.schema';
 import { SessionStatus } from 'src/session-status/schema/session_status.schema';
+import { Rating } from 'src/ratings/schema/rating.schema';
 
 @Injectable()
 export class BookingService {
@@ -52,6 +53,8 @@ export class BookingService {
     private readonly trainerEventsModel: Model<TrainerEvents>,
     @InjectModel(PassedOrders.name)
     private readonly passedOrderModel: Model<PassedOrders>,
+    @InjectModel(Rating.name)
+    private readonly ratingModel: Model<Rating>,
   ) {
     console.log(
       'Razorpay Key ID:',
@@ -68,7 +71,6 @@ export class BookingService {
   }
 
   private formatTimeToHHMMSS(time: string): string {
-    // Accepts: "HH:mm", "HH:mm:ss"
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/;
 
     const match = time.match(timeRegex);
@@ -423,7 +425,6 @@ export class BookingService {
     try {
       const skip = (page - 1) * limit;
 
-      // Clean up empty filter values
       Object.keys(filters).forEach((key) => {
         if (
           filters[key] === '' ||
@@ -438,14 +439,10 @@ export class BookingService {
       const isStatusOpened =
         filters.status && filters.status.toLowerCase() === 'opened';
 
-      // ✅ FIX 1: Removed the trainer.professional_details → match.yogaId assignment
-      // that was corrupting the match stage and causing 0 results.
       if (filters.accepted_trainerId) {
         if (isStatusOpened) {
-          // For opened bookings, filter by trainerIds array (trainer hasn't accepted yet)
           match.trainerIds = filters.accepted_trainerId;
         } else {
-          // For other statuses, filter by accepted_trainerId (trainer already accepted)
           match.accepted_trainerId = filters.accepted_trainerId;
         }
       }
@@ -467,7 +464,6 @@ export class BookingService {
         };
       }
 
-      // Date range filter
       if (filters.fromDate || filters.toDate) {
         const datePatterns: string[] = [];
 
@@ -519,7 +515,6 @@ export class BookingService {
         }
       }
 
-      // Single scheduled date filter (only when no date range provided)
       if (filters.scheduledDate && !filters.fromDate && !filters.toDate) {
         const date = new Date(filters.scheduledDate);
         const options: Intl.DateTimeFormatOptions = { month: 'short' };
@@ -533,8 +528,6 @@ export class BookingService {
         };
       }
 
-      // ✅ FIX 2: Changed filters.trainerId → filters.accepted_trainerId
-      // so passed orders are correctly excluded when filtering opened bookings
       let excludedBookingIds: string[] = [];
 
       if (isStatusOpened && filters.accepted_trainerId) {
@@ -548,9 +541,7 @@ export class BookingService {
         excludedBookingIds = passedOrders.map((order) => order.bookingId);
       }
 
-      // Exclude passed order bookingIds
       if (excludedBookingIds.length > 0) {
-        // Merge with existing bookingId filter if present
         if (match.bookingId) {
           match.bookingId = {
             $eq: match.bookingId,
@@ -563,11 +554,9 @@ export class BookingService {
         }
       }
 
-      // Build aggregation pipeline
       const pipeline: any[] = [{ $match: match }];
 
       pipeline.push(
-        // Join client details
         {
           $lookup: {
             from: 'users',
@@ -578,7 +567,6 @@ export class BookingService {
         },
         { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
 
-        // Join accepted trainer details
         {
           $lookup: {
             from: 'users',
@@ -594,7 +582,6 @@ export class BookingService {
           },
         },
 
-        // Join yoga details
         {
           $lookup: {
             from: 'yogadetails',
@@ -605,7 +592,6 @@ export class BookingService {
         },
         { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
 
-        // Join language details
         {
           $lookup: {
             from: 'languages',
@@ -616,7 +602,6 @@ export class BookingService {
         },
         { $unwind: { path: '$languageId', preserveNullAndEmptyArrays: true } },
 
-        // Join room session details
         {
           $lookup: {
             from: 'roomsessions',
@@ -626,7 +611,6 @@ export class BookingService {
           },
         },
 
-        // Join session status
         {
           $lookup: {
             from: 'sessionstatuses',
@@ -635,16 +619,58 @@ export class BookingService {
             as: 'sessionStatus',
           },
         },
-      );
 
-      // Flatten sessionDetails to single object
+        {
+          $lookup: {
+            from: 'ratings',
+            let: {
+              bookingTrainerId: '$accepted_trainerId.userId',
+              bookingYogaId: '$yogaId.yogaId',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$trainerId', '$$bookingTrainerId'] },
+                      { $eq: ['$yogaId', '$$bookingYogaId'] },
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  averageRating: { $avg: { $toDouble: '$rating' } },
+                  totalRatings: { $sum: 1 },
+                },
+              },
+            ],
+            as: 'trainerYogaRating',
+          },
+        },
+      );
       pipeline.push({
         $addFields: {
           sessionDetails: { $arrayElemAt: ['$sessionDetails', 0] },
+          trainerYogaRating: {
+            $let: {
+              vars: { r: { $arrayElemAt: ['$trainerYogaRating', 0] } },
+              in: {
+                $cond: {
+                  if: { $ifNull: ['$$r', false] },
+                  then: {
+                    averageRating: { $round: ['$$r.averageRating', 1] },
+                    totalRatings: '$$r.totalRatings',
+                  },
+                  else: null,
+                },
+              },
+            },
+          },
         },
       });
 
-      // Post-lookup name filters
       const nameMatch: any = {};
 
       if (filters.clientName) {
@@ -669,7 +695,6 @@ export class BookingService {
         pipeline.push({ $match: nameMatch });
       }
 
-      // Sorting
       const sortDirection = filters.sortOrder?.toLowerCase().startsWith('asc')
         ? 1
         : -1;
@@ -678,18 +703,16 @@ export class BookingService {
         $sort: { createdAt: sortDirection, _id: sortDirection },
       });
 
-      // Export mode — return all records without pagination
       if (filters.isExport === 'true' || filters.isExport === true) {
         const data = await this.bookingModel.aggregate(pipeline);
         return {
-          statusCode: 200,
+          statusCode: HttpStatus.OK,
           message: 'Export data fetched successfully',
           totalCount: data.length,
           data,
         };
       }
 
-      // Paginated mode
       pipeline.push({
         $facet: {
           data: [{ $skip: skip }, { $limit: limit }],
@@ -703,7 +726,7 @@ export class BookingService {
       const totalCount = result[0].totalCount[0]?.count || 0;
 
       return {
-        statusCode: 200,
+        statusCode: HttpStatus.OK,
         message: 'List of Bookings',
         currentPage: page,
         limit,
@@ -714,7 +737,7 @@ export class BookingService {
     } catch (error) {
       console.error('Error in getBookings:', error);
       return {
-        statusCode: 500,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message || error,
       };
     }
@@ -879,9 +902,6 @@ export class BookingService {
           },
         );
       }
-      // const findSession = await this.roomSessionModel.findOne({
-      //   bookingId: req.bookingId,
-      // });
       return {
         statusCode: HttpStatus.OK,
         message: 'Booking started successfully',
@@ -1274,7 +1294,7 @@ export class BookingService {
         const date = new Date(booking.scheduledDate);
 
         if (!isNaN(date.getTime()) && date.getFullYear() === currentYear) {
-          const month = date.getMonth() + 1; // 1-12
+          const month = date.getMonth() + 1;
           monthCounts[month] = (monthCounts[month] || 0) + 1;
         }
       }
@@ -1324,7 +1344,7 @@ export class BookingService {
         const date = new Date(earning.date);
 
         if (!isNaN(date.getTime()) && date.getFullYear() === currentYear) {
-          const month = date.getMonth() + 1; // 1-12
+          const month = date.getMonth() + 1;
 
           if (!monthData[month]) {
             monthData[month] = { count: 0, total: 0 };
@@ -1365,7 +1385,6 @@ export class BookingService {
   }
 
   async getYogaBookingStats(): Promise<YogaBookingStatsDto[]> {
-    // Fetch all bookings that have a yogaId
     const bookings = await this.bookingModel
       .find({
         yogaId: { $exists: true, $ne: null },
@@ -1373,25 +1392,20 @@ export class BookingService {
       .lean()
       .exec();
 
-    // Calculate total bookings
     const totalBookings = bookings.length;
 
-    // Group by yogaId and count
     const yogaCounts: { [key: string]: number } = {};
 
     bookings.forEach((booking: any) => {
       const yogaId = booking.yogaId;
-      // Also filter out empty strings here
       if (yogaId && yogaId !== '') {
         yogaCounts[yogaId] = (yogaCounts[yogaId] || 0) + 1;
       }
     });
 
-    // Fetch yoga names from Yoga collection
     const yogaIds = Object.keys(yogaCounts);
     const yogaNames = await this.getYogaNames(yogaIds);
 
-    // Build result with percentages
     const results: YogaBookingStatsDto[] = Object.entries(yogaCounts).map(
       ([yogaId, count]) => ({
         yoga_id: yogaId,
@@ -1404,7 +1418,6 @@ export class BookingService {
       }),
     );
 
-    // Sort by booking count (descending)
     results.sort((a, b) => b.bookingCount - a.bookingCount);
 
     return results;
@@ -1683,7 +1696,6 @@ export class BookingService {
       if (findTrainer && findTrainer.length > 0) {
         const result = findTrainer[0];
 
-        // Attach yogaDetails to each booking before filtering
         await Promise.all(
           (result.accepted_bookings || []).map(async (booking) => {
             booking.yogaDetails = await this.yogaModel
@@ -1693,7 +1705,6 @@ export class BookingService {
           }),
         );
 
-        // Filter upcoming bookings
         const upcomingBookingsRaw =
           result.accepted_bookings?.filter((booking) => {
             const [hours, minutes, seconds] = booking.time
@@ -1711,16 +1722,13 @@ export class BookingService {
             return sessionEndTime.getTime() >= currentDate.getTime();
           }) || [];
 
-        // Fetch client and yoga details for each upcoming booking
         const upcomingBookings = await Promise.all(
           upcomingBookingsRaw.map(async (booking) => {
-            // Fetch client details
             const clientDetails = await this.userModel
               .findOne({ userId: booking.clientId })
               .select('userId name profile_pic')
               .lean();
 
-            // Fetch yoga details
             const yogaDetails = await this.yogaModel
               .findOne({ yogaId: booking.yogaId })
               .select('yogaId yoga_name trainer_price duration')
@@ -1807,7 +1815,6 @@ export class BookingService {
       if (findClient && findClient.length > 0) {
         const result = findClient[0];
 
-        // Attach yogaDetails to each booking before filtering
         await Promise.all(
           (result.accepted_bookings || []).map(async (booking) => {
             booking.yogaDetails = await this.yogaModel
@@ -1817,7 +1824,6 @@ export class BookingService {
           }),
         );
 
-        // Filter upcoming bookings
         const upcomingBookingsRaw =
           result.accepted_bookings?.filter((booking) => {
             const [hours, minutes, seconds] = booking.time
@@ -1826,7 +1832,6 @@ export class BookingService {
             const scheduledDate = new Date(booking.scheduledDate);
             scheduledDate.setHours(hours, minutes, seconds, 0);
 
-            // Parse duration string like "10 mins" or "30 mins" -> extract number
             const durationStr = booking.yogaDetails?.duration ?? '0';
             const durationMinutes =
               parseInt(durationStr.toString().replace(/[^0-9]/g, ''), 10) || 0;
@@ -1855,11 +1860,37 @@ export class BookingService {
               .select('roomId roomURL roomName roomCreated clientId trainerId bookingId')
               .lean();
 
+            const trainerYogaRatingRaw = await this.ratingModel.aggregate([
+              {
+                $match: {
+                  trainerId: booking.accepted_trainerId,
+                  yogaId: booking.yogaId,
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  averageRating: { $avg: { $toDouble: '$rating' } },
+                  totalRatings: { $sum: 1 },
+                },
+              },
+            ]);
+
+            const trainerYogaRating =
+              trainerYogaRatingRaw.length > 0
+                ? {
+                  averageRating:
+                    Math.round(trainerYogaRatingRaw[0].averageRating * 10) / 10,
+                  totalRatings: trainerYogaRatingRaw[0].totalRatings,
+                }
+                : null;
+
             return {
               ...booking,
               trainerDetails: trainerDetails || null,
               yogaDetails: yogaDetails || null,
               roomSessionDetails: roomSessionDetails || null,
+              trainerYogaRating, 
             };
           }),
         );
@@ -1911,7 +1942,6 @@ export class BookingService {
           bookingId: req.bookingId,
         });
 
-        // ✅ FIXED: Use regex to match yogaId within comma-separated professional_details
         const findTrainers = await this.userModel.find({
           professional_details: {
             $regex: new RegExp(`(^|,\\s*)${findBooking?.yogaId}(\\s*,|$)`),
@@ -2058,15 +2088,11 @@ export class BookingService {
     const { trainerId } = dto;
     const { start, end } = this.getDateRange(dto);
 
-    // Step 1: Fetch only earningId and date for this trainer — lightweight query
     const allEarnings = await this.earningModel
       .find({ trainerId })
       .select('earningId date')
       .lean();
 
-    // Step 2: Filter by date range in Node.js
-    // Node.js V8 correctly parses "Fri Feb 13 2026 05:30:00 GMT+0530 (India Standard Time)"
-    // Both sides are now in UTC so comparison is accurate
     const validEarningIds = allEarnings
       .filter((e) => {
         const d = new Date(e.date);
@@ -2074,7 +2100,6 @@ export class BookingService {
       })
       .map((e) => e.earningId);
 
-    // Step 3: Early return if no records found
     if (validEarningIds.length === 0) {
       return {
         success: true,
@@ -2091,7 +2116,6 @@ export class BookingService {
       };
     }
 
-    // Step 4: Full aggregation with lookups only for matched records
     const earnings = await this.earningModel.aggregate([
       {
         $match: {
@@ -2100,7 +2124,6 @@ export class BookingService {
         },
       },
 
-      // Populate Booking
       {
         $lookup: {
           from: 'bookings',
@@ -2111,7 +2134,6 @@ export class BookingService {
       },
       { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
 
-      // Populate Trainer
       {
         $lookup: {
           from: 'users',
@@ -2122,7 +2144,6 @@ export class BookingService {
       },
       { $unwind: { path: '$trainerId', preserveNullAndEmptyArrays: true } },
 
-      // Populate Client
       {
         $lookup: {
           from: 'users',
@@ -2133,7 +2154,6 @@ export class BookingService {
       },
       { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
 
-      // Populate Yoga
       {
         $lookup: {
           from: 'yogadetails',
@@ -2165,20 +2185,17 @@ export class BookingService {
       { $sort: { date: -1 } },
     ]);
 
-    // Step 5: Compute summary stats
     const totalEarned = earnings.reduce(
       (sum, e) => sum + (e.earned_amount || 0),
       0,
     );
     const totalSessions = earnings.length;
 
-    // Step 6: Daily breakdown — normalize IST date string to YYYY-MM-DD
     const dailyBreakdown: {
       [key: string]: { totalEarned: number; sessions: number };
     } = {};
 
     for (const e of earnings) {
-      // Convert "Fri Feb 13 2026 05:30:00 GMT+0530..." to "2026-02-13" in IST
       const parsedDate = new Date(e.date);
       const istDate = new Date(parsedDate.getTime() + this.IST_OFFSET_MS);
       const key = istDate.toISOString().split('T')[0];
@@ -2246,7 +2263,7 @@ export class BookingService {
       const yearStr = String(nowIST.getUTCFullYear());
 
       const todayMatchStr = `${monthStr} ${nowIST.getUTCDate()} ${yearStr}`;
-      
+
 
       console.log('todayMatchStr:', todayMatchStr);
       console.log(
@@ -2473,11 +2490,8 @@ export class BookingService {
             amount: paymentDetails.amount,
           });
 
-          // ✅ Case 1: Payment is still authorized (never captured)
-          // Cannot refund — must cancel/void it differently
           if (paymentDetails.status === 'authorized') {
             if (isTestMode) {
-              // In test mode — simulate refund, skip API call
               console.log(
                 'TEST MODE: Payment still authorized, simulating void/refund',
               );
@@ -2488,15 +2502,12 @@ export class BookingService {
                 note: 'Authorized payment voided in test mode',
               };
             } else {
-              // In live mode — UPI authorized payments auto-expire after 5 days
-              // For cards, you can attempt refund on authorized payment
               try {
                 refundResult = await this.razorpay.payments.refund(
                   booking.transactionId,
                   { amount: Number(paymentDetails.amount) },
                 );
               } catch (voidErr) {
-                // If refund on authorized fails, just cancel the booking
                 console.warn(
                   'Refund on authorized payment failed:',
                   voidErr?.error?.description,
@@ -2510,10 +2521,8 @@ export class BookingService {
             }
           }
 
-          // ✅ Case 2: Payment is captured — normal refund flow
           else if (paymentDetails.status === 'captured') {
             if (isTestMode && paymentDetails.method === 'upi') {
-              // Test mode UPI captured — simulate refund
               console.log(
                 'TEST MODE: UPI captured payment - simulating refund',
               );
@@ -2525,7 +2534,6 @@ export class BookingService {
                 note: 'Simulated in test mode — use Razorpay dashboard to issue actual refund',
               };
             } else {
-              // ✅ Live mode or non-UPI test — actual refund
               refundResult = await this.razorpay.payments.refund(
                 booking.transactionId,
                 { amount: Number(paymentDetails.amount) },
@@ -2534,13 +2542,11 @@ export class BookingService {
             }
           }
 
-          // ✅ Case 3: Already refunded
           else if (paymentDetails.status === 'refunded') {
             console.log('Payment already refunded, just cancelling booking');
             refundResult = { id: null, status: 'already_refunded' };
           }
 
-          // ✅ Case 4: Failed/other status
           else {
             console.log(
               `Payment in '${paymentDetails.status}' status, skipping refund`,
@@ -2562,7 +2568,6 @@ export class BookingService {
         console.log('No valid transactionId found, skipping refund');
       }
 
-      // ✅ Cancel the booking regardless of refund outcome
       const cancel_booking = await this.bookingModel.updateOne(
         { bookingId: req.bookingId },
         {
@@ -2738,18 +2743,16 @@ export class BookingService {
   //   }
   // }
 
-async autoCancelExpiredBookings() {
+  async autoCancelExpiredBookings() {
     try {
       console.log('Running auto-cancel cron job at midnight...');
 
       const now = new Date();
 
-      // Find all bookings with accepted or ongoing status
       const expiredBookings = await this.bookingModel.find({
         status: { $in: ['accepted'] },
       });
 
-      // Filter bookings where scheduledDate + time field is before now
       const toCancel = expiredBookings.filter((booking) => {
         try {
           const timeParts = (booking.time || '00:00:00').split(':').map(Number);
@@ -2757,7 +2760,6 @@ async autoCancelExpiredBookings() {
           const minutes = timeParts[1] ?? 0;
           const seconds = timeParts[2] ?? 0;
 
-          // scheduledDate gives the date, time field gives the actual session time
           const scheduledDate = new Date(booking.scheduledDate);
           scheduledDate.setHours(hours, minutes, seconds, 0);
 
@@ -2770,7 +2772,6 @@ async autoCancelExpiredBookings() {
 
       console.log(`Found ${toCancel.length} expired bookings to cancel`);
 
-      // Reuse existing cancelOrder logic for each expired booking
       for (const booking of toCancel) {
         console.log(`Auto-cancelling bookingId: ${booking.bookingId}`);
         const result = await this.cancelOrder({ bookingId: booking.bookingId } as bookingDto);
