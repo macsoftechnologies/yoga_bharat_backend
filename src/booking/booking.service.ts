@@ -327,7 +327,7 @@ export class BookingService {
     bookingDate: Date,
   ): Promise<string[]> {
     const availableTrainers: string[] = [];
-    
+
     for (const trainerId of trainerIds) {
       const events = await this.trainerEventsModel.find({ userId: trainerId });
       const hasConflict = events.some((event) =>
@@ -661,7 +661,20 @@ export class BookingService {
                 $group: {
                   _id: null,
                   averageRating: { $avg: { $toDouble: '$rating' } },
-                  totalRatings: { $sum: 1 },
+                  reviews: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $and: [
+                            { $gt: [{ $type: '$review' }, 'missing'] },
+                            { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: ['$review', ''] } } } }, 0] },
+                          ],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
                 },
               },
             ],
@@ -680,7 +693,7 @@ export class BookingService {
                   if: { $ifNull: ['$$r', false] },
                   then: {
                     averageRating: { $round: ['$$r.averageRating', 1] },
-                    totalRatings: '$$r.totalRatings',
+                    reviews: '$$r.reviews',
                   },
                   else: null,
                 },
