@@ -2750,7 +2750,7 @@ export class BookingService {
       const now = new Date();
 
       const expiredBookings = await this.bookingModel.find({
-        status: { $in: ['accepted'] },
+        status: { $in: ['accepted', 'opened'] },
       });
 
       const toCancel = expiredBookings.filter((booking) => {
