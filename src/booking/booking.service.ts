@@ -152,6 +152,9 @@ export class BookingService {
         professional_details: {
           $regex: new RegExp(`(^|,\\s*)${req.yogaId}(\\s*,|$)`),
         },
+        languageId: {
+          $regex: new RegExp(`(^|,\\s*)${req.languageId.trim()}(\\s*,|$)`),
+        },
       });
       const allTrainerIds = trainers.map((trainer) => trainer.userId);
 
@@ -324,7 +327,7 @@ export class BookingService {
     bookingDate: Date,
   ): Promise<string[]> {
     const availableTrainers: string[] = [];
-
+    
     for (const trainerId of trainerIds) {
       const events = await this.trainerEventsModel.find({ userId: trainerId });
       const hasConflict = events.some((event) =>
@@ -442,6 +445,22 @@ export class BookingService {
       if (filters.accepted_trainerId) {
         if (isStatusOpened) {
           match.trainerIds = filters.accepted_trainerId;
+
+          const trainerDoc = await this.userModel
+            .findOne({ userId: filters.accepted_trainerId }, { languageId: 1 })
+            .lean();
+
+          const trainerLanguageIds: string[] = trainerDoc?.languageId
+            ? trainerDoc.languageId
+              .split(',')
+              .map((id: string) => id.trim())
+              .filter(Boolean)
+            : [];
+
+          if (trainerLanguageIds.length > 0) {
+            match.languageId = { $in: trainerLanguageIds };
+          }
+
         } else {
           match.accepted_trainerId = filters.accepted_trainerId;
         }
@@ -1890,7 +1909,7 @@ export class BookingService {
               trainerDetails: trainerDetails || null,
               yogaDetails: yogaDetails || null,
               roomSessionDetails: roomSessionDetails || null,
-              trainerYogaRating, 
+              trainerYogaRating,
             };
           }),
         );
@@ -1945,6 +1964,9 @@ export class BookingService {
         const findTrainers = await this.userModel.find({
           professional_details: {
             $regex: new RegExp(`(^|,\\s*)${findBooking?.yogaId}(\\s*,|$)`),
+          },
+          languageId: {
+            $regex: new RegExp(`(^|,\\s*)${findBooking?.languageId.trim()}(\\s*,|$)`),
           },
         });
 

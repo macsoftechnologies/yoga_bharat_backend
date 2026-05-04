@@ -21,4 +21,6 @@ export class userEditDto{
     role: string
     @ApiProperty()
     health_preference: string
+    @ApiProperty()
+    languageId: string
 }

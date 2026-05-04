@@ -23,4 +23,6 @@ export class trainerDto{
     isDisabled: boolean
     @ApiProperty()
     istrainerOn: boolean
+    @ApiProperty()
+    languageId: string
 }

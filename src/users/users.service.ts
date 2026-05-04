@@ -671,7 +671,8 @@ export class UsersService {
             professional_details: req.professional_details,
             profile_pic: req.profile_pic,
             role: Role.TRAINER,
-            istrainerOn: true
+            istrainerOn: true,
+            languageId: req.languageId
           },
         },
       );
@@ -1012,14 +1013,18 @@ export class UsersService {
 
       const pipeline: any[] = [];
 
-      // --- 1. Base match: only trainers ---
       const match: any = { role: Role.TRAINER };
 
       if (filters.gender) {
         match.gender = { $regex: new RegExp(filters.gender, 'i') };
       }
 
-      // --- 2. Filter by date range on createdAt ---
+      if (filters.languageId) {
+        match.languageId = {
+          $regex: new RegExp(`(^|,\\s*)${filters.languageId.trim()}(\\s*,|$)`),
+        };
+      }
+
       if (filters.fromDate || filters.toDate) {
         match.createdAt = {};
         if (filters.fromDate) {
@@ -1055,14 +1060,23 @@ export class UsersService {
             },
           },
         },
-        // {
-        //   $lookup: {
-        //     from: 'yogadetails',
-        //     localField: 'professional_details',
-        //     foreignField: 'yogaId',
-        //     as: 'professional_details',
-        //   },
-        // }
+        {
+          $addFields: {
+            language_arr: {
+              $filter: {
+                input: {
+                  $map: {
+                    input: { $split: [{ $ifNull: ['$languageId', ''] }, ','] },
+                    as: 'item',
+                    in: { $trim: { input: '$$item' } },
+                  },
+                },
+                as: 'item',
+                cond: { $ne: ['$$item', ''] },
+              },
+            },
+          },
+        },
         {
           $lookup: {
             from: 'yogadetails',
@@ -1081,10 +1095,30 @@ export class UsersService {
               },
             },
           },
-        }
+        },
+
+        {
+          $lookup: {
+            from: 'languages',
+            localField: 'language_arr',
+            foreignField: 'languageId',
+            as: 'languageDetails',
+          },
+        },
+        {
+          $addFields: {
+            languageDetails: {
+              $cond: {
+                if: { $gt: [{ $size: { $ifNull: ['$languageDetails', []] } }, 0] },
+                then: '$languageDetails',
+                else: '$$REMOVE',
+              },
+            },
+            language_arr: '$$REMOVE',
+          },
+        },
       );
 
-      // --- 4. Filter by name or mobileNumber ---
       const searchMatch: any = {};
 
       if (filters.name) {
@@ -1101,11 +1135,9 @@ export class UsersService {
         pipeline.push({ $match: searchMatch });
       }
 
-      // --- 5. Sort ---
       const sortDirection = filters.sortOrder === 'asc' ? 1 : -1;
       pipeline.push({ $sort: { createdAt: sortDirection, _id: sortDirection } });
 
-      // --- 6. If isExport, return all filtered data without pagination ---
       if (filters.isExport === 'true' || filters.isExport === true) {
         const data = await this.userModel.aggregate(pipeline);
         return {
@@ -1116,7 +1148,6 @@ export class UsersService {
         };
       }
 
-      // --- 7. Paginated response using $facet ---
       pipeline.push({
         $facet: {
           data: [{ $skip: skip }, { $limit: limit }],
@@ -1327,6 +1358,19 @@ export class UsersService {
                 cond: { $ne: ['$$item', ''] },
               },
             },
+            language_arr: {
+              $filter: {
+                input: {
+                  $map: {
+                    input: { $split: [{ $ifNull: ['$languageId', ''] }, ','] },
+                    as: 'item',
+                    in: { $trim: { input: '$$item' } },
+                  },
+                },
+                as: 'item',
+                cond: { $ne: ['$$item', ''] },
+              },
+            },
           },
         },
         {
@@ -1343,6 +1387,14 @@ export class UsersService {
             localField: 'professional_details_arr',
             foreignField: 'yogaId',
             as: 'professional_details',
+          },
+        },
+        {
+          $lookup: {
+            from: 'languages',
+            localField: 'language_arr',
+            foreignField: 'languageId',
+            as: 'languageDetails',
           },
         },
         {
@@ -1475,6 +1527,13 @@ export class UsersService {
                 else: '$$REMOVE',
               },
             },
+            languageDetails: {
+              $cond: {
+                if: { $gt: [{ $size: { $ifNull: ['$languageDetails', []] } }, 0] },
+                then: '$languageDetails',
+                else: '$$REMOVE',
+              },
+            },
           },
         },
 
@@ -1483,6 +1542,7 @@ export class UsersService {
             ratingsRaw: 0,
             health_preference_arr: 0,
             professional_details_arr: 0,
+            language_arr: 0,
           },
         },
       ]);
@@ -1591,6 +1651,7 @@ export class UsersService {
               age: req.age,
               professional_details: req.professional_details,
               profile_pic: req.profile_pic,
+              languageId: req.languageId
             },
           },
         );
