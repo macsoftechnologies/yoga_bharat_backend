@@ -153,7 +153,7 @@ export class BookingService {
           $regex: new RegExp(`(^|,\\s*)${req.yogaId}(\\s*,|$)`),
         },
         languageId: {
-          $regex: new RegExp(`(^|,\\s*)${req.languageId.trim()}(\\s*,|$)`),
+          $regex: new RegExp(`(^|,\\s*)${req.languageId}(\\s*,|$)`),
         },
       });
       const allTrainerIds = trainers.map((trainer) => trainer.userId);
