@@ -1979,7 +1979,7 @@ export class BookingService {
             $regex: new RegExp(`(^|,\\s*)${findBooking?.yogaId}(\\s*,|$)`),
           },
           languageId: {
-            $regex: new RegExp(`(^|,\\s*)${findBooking?.languageId.trim()}(\\s*,|$)`),
+            $regex: new RegExp(`(^|,\\s*)${findBooking?.languageId}(\\s*,|$)`),
           },
         });
 
