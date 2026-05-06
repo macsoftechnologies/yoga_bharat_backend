@@ -29,6 +29,7 @@ import { userDeleteDto } from './dto/delete.dto';
 import { trainerAvailabilityDto } from './dto/trainer_availability.dto';
 import { TrainerEvents } from './schema/trainer_availability.schema';
 import { SMSService } from 'src/auth/sms.service';
+import { YogaDetails } from 'src/yoga/schema/yoga_details.schema';
 
 @Injectable()
 export class UsersService {
@@ -47,6 +48,8 @@ export class UsersService {
     @InjectModel(TrainerEvents.name)
     private readonly trainerEventsModel: Model<TrainerEvents>,
     private readonly smsService: SMSService,
+    @InjectModel(YogaDetails.name)
+    private readonly yogaModel: Model<YogaDetails>,
   ) { }
 
   //  Starting of Health Preferences Apis
@@ -1991,6 +1994,64 @@ export class UsersService {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
       };
+    }
+  }
+
+  async getUserHealth(req: userDto) {
+    try {
+      const findUser = await this.userModel.findOne({ userId: req.userId });
+      if (!findUser) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "User not found",
+        }
+      }
+      const userPrefIds = findUser?.health_preference
+        ? findUser.health_preference.split(",").map((id) => id.trim())
+        : [];
+
+      const availablePreferences = await this.healthModel.find({
+        prefId: { $nin: userPrefIds },
+      });
+      return {
+        statusCode: HttpStatus.OK,
+        message: "List of available health preferences",
+        data: availablePreferences
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
+  async getUserYogas(req: userDto) {
+    try {
+      const findUser = await this.userModel.findOne({ userId: req.userId });
+      if (!findUser) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "User not found",
+        }
+      }
+      const userYogaIds = findUser?.professional_details
+        ? findUser.professional_details.split(",").map((id) => id.trim())
+        : [];
+
+      const availableYogas = await this.yogaModel.find({
+        yogaId: { $nin: userYogaIds },
+      });
+      return {
+        statusCode: HttpStatus.OK,
+        message: "List of available Yogas",
+        data: availableYogas
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
     }
   }
 }

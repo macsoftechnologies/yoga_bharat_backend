@@ -18,6 +18,7 @@ import { InAppNotifications, inappNotificationsSchema } from 'src/in-app-notific
 import { InAppNotificationsService } from 'src/in-app-notifications/in-app-notifications.service';
 import { TrainerEvents, trainerEventSchema } from './schema/trainer_availability.schema';
 import { SMSService } from 'src/auth/sms.service';
+import { YogaDetails, yogaDetailsSchema } from 'src/yoga/schema/yoga_details.schema';
 
 @Module({
   imports: [
@@ -27,7 +28,8 @@ import { SMSService } from 'src/auth/sms.service';
       { name: ProfessionalDetails.name, schema: professionalDetailsSchema },
       { name: Certificate.name, schema: certificateSchema },
       { name: InAppNotifications.name, schema: inappNotificationsSchema },
-      { name: TrainerEvents.name, schema: trainerEventSchema }
+      { name: TrainerEvents.name, schema: trainerEventSchema },
+      { name: YogaDetails.name, schema: yogaDetailsSchema },
     ]),
   ],
   controllers: [UsersController],

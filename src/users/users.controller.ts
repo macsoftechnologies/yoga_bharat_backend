@@ -717,4 +717,30 @@ export class UsersController {
       }
     }
   }
+
+  @Post('/health_prefbyuserid')
+  async getNotUserHealthPreferences(@Body() req: userDto) {
+    try{
+      const list = await this.usersService.getUserHealth(req);
+      return list
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
+
+  @Post('/yogabyuserid')
+  async getNotUserYogas(@Body() req: userDto) {
+    try{
+      const list = await this.usersService.getUserYogas(req);
+      return list
+    } catch(error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
+    }
+  }
 }
