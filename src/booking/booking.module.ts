@@ -23,6 +23,8 @@ import { PassedOrders, passedOrderSchema } from 'src/passed_orders/schema/passed
 import { SessionStatus, sessionStatusSchema } from 'src/session-status/schema/session_status.schema';
 import { SessionStatusService } from 'src/session-status/session-status.service';
 import { Rating, ratingSchema } from 'src/ratings/schema/rating.schema';
+import { Certificate } from 'crypto';
+import { certificateSchema } from 'src/users/schema/cerificates.schema';
 
 @Module({
   imports: [
@@ -40,6 +42,7 @@ import { Rating, ratingSchema } from 'src/ratings/schema/rating.schema';
       { name: TrainerEvents.name, schema: trainerEventSchema },
       { name: PassedOrders.name, schema: passedOrderSchema },
       { name: Rating.name, schema: ratingSchema },
+      { name: Certificate.name, schema: certificateSchema },
     ]),
   ],
   controllers: [BookingController],
