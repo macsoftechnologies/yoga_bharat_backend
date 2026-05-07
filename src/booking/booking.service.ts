@@ -25,6 +25,7 @@ import { TrainerEvents } from 'src/users/schema/trainer_availability.schema';
 import { PassedOrders } from 'src/passed_orders/schema/passed_orders.schema';
 import { SessionStatus } from 'src/session-status/schema/session_status.schema';
 import { Rating } from 'src/ratings/schema/rating.schema';
+import { Certificate } from 'src/users/schema/cerificates.schema';
 
 @Injectable()
 export class BookingService {
@@ -55,6 +56,8 @@ export class BookingService {
     private readonly passedOrderModel: Model<PassedOrders>,
     @InjectModel(Rating.name)
     private readonly ratingModel: Model<Rating>,
+    @InjectModel(Certificate.name)
+    private readonly certificateModel: Model<Certificate>,
   ) {
     console.log(
       'Razorpay Key ID:',
@@ -155,6 +158,7 @@ export class BookingService {
         languageId: {
           $regex: new RegExp(`(^|,\\s*)${req.languageId}(\\s*,|$)`),
         },
+        ekyc_status: 'approved',
       });
       const allTrainerIds = trainers.map((trainer) => trainer.userId);
 
@@ -1754,6 +1758,56 @@ export class BookingService {
             return sessionEndTime.getTime() >= currentDate.getTime();
           }) || [];
 
+        const [certificatesCount, trainerBankDetails, trainerMediaDetails] = await Promise.all([
+          this.certificateModel.find({ userId }).countDocuments(),
+          this.userModel
+            .findOne({ userId })
+            .select('account_branch accout_no branch_address ifsc_code recepient_name')
+            .lean(),
+          this.userModel.findOne({ userId }).select('yoga_video, journey_images').lean(),
+        ]);
+
+        const bankFieldLabels: Record<string, string> = {
+          account_branch: 'Account Branch',
+          accout_no: 'Account Number',
+          branch_address: 'Branch Address',
+          ifsc_code: 'IFSC Code',
+          recepient_name: 'Recipient Name',
+        };
+
+        const missingDetails: string[] = [];
+
+        if (certificatesCount === 0) {
+          missingDetails.push('Certificates');
+        }
+
+        if (trainerBankDetails) {
+          for (const [field, label] of Object.entries(bankFieldLabels)) {
+            const value = trainerBankDetails[field];
+            if (!value || (typeof value === 'string' && value.trim() === '')) {
+              missingDetails.push(label);
+            }
+          }
+        } else {
+          missingDetails.push(...Object.values(bankFieldLabels));
+        }
+
+        if (
+          !trainerMediaDetails?.yoga_video ||
+          (typeof trainerMediaDetails.yoga_video === 'string' &&
+            trainerMediaDetails.yoga_video.trim() === '')
+        ) {
+          missingDetails.push('Yoga Video');
+        }
+
+        if (
+          !trainerMediaDetails?.journey_images ||
+          !Array.isArray(trainerMediaDetails.journey_images) ||
+          trainerMediaDetails.journey_images.length === 0
+        ) {
+          missingDetails.push('Journey Images');
+        }
+
         const upcomingBookings = await Promise.all(
           upcomingBookingsRaw.map(async (booking) => {
             const clientDetails = await this.userModel
@@ -1798,6 +1852,10 @@ export class BookingService {
           statusCode: HttpStatus.OK,
           message: 'Trainer Details',
           unread_Notifications: findInAppNotifications,
+          profile_completion: {
+            is_complete: missingDetails.length === 0,
+            missing_details: missingDetails,
+          },
           data: result,
         };
       } else {
@@ -1981,6 +2039,7 @@ export class BookingService {
           languageId: {
             $regex: new RegExp(`(^|,\\s*)${findBooking?.languageId}(\\s*,|$)`),
           },
+          ekyc_status: 'approved',
         });
 
         if (findBooking && findTrainers.length > 0) {
@@ -2257,217 +2316,217 @@ export class BookingService {
     };
   }
 
- async addOrderAlerts(req: orderAlertDto) {
-  try {
-    const findUser = await this.userModel.findOne({ userId: req.trainerId });
-    if (findUser && !findUser.istrainerOn) {
+  async addOrderAlerts(req: orderAlertDto) {
+    try {
+      const findUser = await this.userModel.findOne({ userId: req.trainerId });
+      if (findUser && !findUser.istrainerOn) {
+        return {
+          status: HttpStatus.OK,
+          message: 'Order Alert Details',
+          data: {},
+        };
+      }
+
+      const now = new Date();
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+
+      const nowTotalSecondsIST =
+        nowIST.getUTCHours() * 3600 +
+        nowIST.getUTCMinutes() * 60 +
+        nowIST.getUTCSeconds();
+
+      const fiveMinInSeconds = 5 * 60;
+
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+
+      const todayDay = nowIST.getUTCDate();
+      const todayMonth = months[nowIST.getUTCMonth()];
+      const todayYear = nowIST.getUTCFullYear();
+      const todayMatchStr = `${todayMonth} ${String(todayDay).padStart(2, '0')} ${todayYear}`;
+
+      console.log('todayMatchStr:', todayMatchStr);
+      console.log(
+        'nowTotalSecondsIST:', nowTotalSecondsIST,
+        '→', `${nowIST.getUTCHours()}:${nowIST.getUTCMinutes()}:${nowIST.getUTCSeconds()}`,
+      );
+      console.log(
+        'window seconds:',
+        nowTotalSecondsIST - fiveMinInSeconds, 'to',
+        nowTotalSecondsIST + fiveMinInSeconds,
+      );
+
+      const getOrderAlert = await this.orderAlertModel.aggregate([
+        {
+          $match: {
+            trainerId: req.trainerId,
+            status: { $nin: ['accepted', 'cancelled', 'completed'] },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+
+        {
+          $lookup: {
+            from: 'bookings',
+            localField: 'bookingId',
+            foreignField: 'bookingId',
+            as: 'bookingId',
+          },
+        },
+        { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
+
+        {
+          $match: {
+            $expr: {
+              $regexMatch: {
+                input: '$bookingId.scheduledDate',
+                regex: todayMatchStr,
+              },
+            },
+          },
+        },
+
+        {
+          $addFields: {
+            bookingTotalSeconds: {
+              $add: [
+                {
+                  $multiply: [
+                    {
+                      $toInt: {
+                        $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 0],
+                      },
+                    },
+                    3600,
+                  ],
+                },
+                {
+                  $multiply: [
+                    {
+                      $toInt: {
+                        $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 1],
+                      },
+                    },
+                    60,
+                  ],
+                },
+                {
+                  $toInt: {
+                    $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 2],
+                  },
+                },
+              ],
+            },
+          },
+        },
+
+        {
+          $match: {
+            $expr: {
+              $and: [
+                {
+                  $gte: [
+                    '$bookingTotalSeconds',
+                    nowTotalSecondsIST - fiveMinInSeconds,
+                  ],
+                },
+                {
+                  $lte: [
+                    '$bookingTotalSeconds',
+                    nowTotalSecondsIST + fiveMinInSeconds,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+
+        { $limit: 1 },
+
+        {
+          $lookup: {
+            from: 'roomsessions',
+            localField: 'bookingId.bookingId',
+            foreignField: 'bookingId',
+            as: 'room_details',
+          },
+        },
+        { $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true } },
+
+        {
+          $lookup: {
+            from: 'yogadetails',
+            localField: 'bookingId.yogaId',
+            foreignField: 'yogaId',
+            as: 'yogaId',
+          },
+        },
+        { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
+
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'bookingId.clientId',
+            foreignField: 'userId',
+            as: 'clientId',
+          },
+        },
+        { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
+
+        {
+          $lookup: {
+            from: 'passedorders',
+            let: {
+              trainerId: '$trainerId',
+              bookingId: '$bookingId.bookingId',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$trainerId', '$$trainerId'] },
+                      { $eq: ['$bookingId', '$$bookingId'] },
+                    ],
+                  },
+                },
+              },
+            ],
+            as: 'passedOrderCheck',
+          },
+        },
+        { $match: { passedOrderCheck: { $size: 0 } } },
+
+        {
+          $project: {
+            bookingId: '$bookingId',
+            yoga_details: '$yogaId',
+            client_details: '$clientId',
+            room_details: '$room_details',
+            status: 1,
+            alertId: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        },
+      ]);
+
+
       return {
         status: HttpStatus.OK,
         message: 'Order Alert Details',
-        data: {},
+        data: getOrderAlert[0] || {},
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
       };
     }
-
-    const now = new Date();
-    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-    const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
-
-    const nowTotalSecondsIST =
-      nowIST.getUTCHours() * 3600 +
-      nowIST.getUTCMinutes() * 60 +
-      nowIST.getUTCSeconds();
-
-    const fiveMinInSeconds = 5 * 60;
-
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-
-    const todayDay = nowIST.getUTCDate();
-    const todayMonth = months[nowIST.getUTCMonth()];
-    const todayYear = nowIST.getUTCFullYear();
-    const todayMatchStr = `${todayMonth} ${String(todayDay).padStart(2, '0')} ${todayYear}`;
-
-    console.log('todayMatchStr:', todayMatchStr);
-    console.log(
-      'nowTotalSecondsIST:', nowTotalSecondsIST,
-      '→', `${nowIST.getUTCHours()}:${nowIST.getUTCMinutes()}:${nowIST.getUTCSeconds()}`,
-    );
-    console.log(
-      'window seconds:',
-      nowTotalSecondsIST - fiveMinInSeconds, 'to',
-      nowTotalSecondsIST + fiveMinInSeconds,
-    );
-
-    const getOrderAlert = await this.orderAlertModel.aggregate([
-      {
-        $match: {
-          trainerId: req.trainerId,
-          status: { $nin: ['accepted', 'cancelled', 'completed'] },
-        },
-      },
-      { $sort: { createdAt: -1 } },
-
-      {
-        $lookup: {
-          from: 'bookings',
-          localField: 'bookingId',
-          foreignField: 'bookingId',
-          as: 'bookingId',
-        },
-      },
-      { $unwind: { path: '$bookingId', preserveNullAndEmptyArrays: true } },
-
-      {
-        $match: {
-          $expr: {
-            $regexMatch: {
-              input: '$bookingId.scheduledDate',
-              regex: todayMatchStr,
-            },
-          },
-        },
-      },
-
-      {
-        $addFields: {
-          bookingTotalSeconds: {
-            $add: [
-              {
-                $multiply: [
-                  {
-                    $toInt: {
-                      $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 0],
-                    },
-                  },
-                  3600,
-                ],
-              },
-              {
-                $multiply: [
-                  {
-                    $toInt: {
-                      $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 1],
-                    },
-                  },
-                  60,
-                ],
-              },
-              {
-                $toInt: {
-                  $arrayElemAt: [{ $split: ['$bookingId.time', ':'] }, 2],
-                },
-              },
-            ],
-          },
-        },
-      },
-
-      {
-        $match: {
-          $expr: {
-            $and: [
-              {
-                $gte: [
-                  '$bookingTotalSeconds',
-                  nowTotalSecondsIST - fiveMinInSeconds,
-                ],
-              },
-              {
-                $lte: [
-                  '$bookingTotalSeconds',
-                  nowTotalSecondsIST + fiveMinInSeconds,
-                ],
-              },
-            ],
-          },
-        },
-      },
-
-      { $limit: 1 },
-
-      {
-        $lookup: {
-          from: 'roomsessions',
-          localField: 'bookingId.bookingId',
-          foreignField: 'bookingId',
-          as: 'room_details',
-        },
-      },
-      { $unwind: { path: '$room_details', preserveNullAndEmptyArrays: true } },
-
-      {
-        $lookup: {
-          from: 'yogadetails',
-          localField: 'bookingId.yogaId',
-          foreignField: 'yogaId',
-          as: 'yogaId',
-        },
-      },
-      { $unwind: { path: '$yogaId', preserveNullAndEmptyArrays: true } },
-
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'bookingId.clientId',
-          foreignField: 'userId',
-          as: 'clientId',
-        },
-      },
-      { $unwind: { path: '$clientId', preserveNullAndEmptyArrays: true } },
-
-      {
-        $lookup: {
-          from: 'passedorders',
-          let: {
-            trainerId: '$trainerId',
-            bookingId: '$bookingId.bookingId',
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$trainerId', '$$trainerId'] },
-                    { $eq: ['$bookingId', '$$bookingId'] },
-                  ],
-                },
-              },
-            },
-          ],
-          as: 'passedOrderCheck',
-        },
-      },
-      { $match: { passedOrderCheck: { $size: 0 } } },
-
-      {
-        $project: {
-          bookingId: '$bookingId',
-          yoga_details: '$yogaId',
-          client_details: '$clientId',
-          room_details: '$room_details',
-          status: 1,
-          alertId: 1,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      },
-    ]);
-
-
-    return {
-      status: HttpStatus.OK,
-      message: 'Order Alert Details',
-      data: getOrderAlert[0] || {},
-    };
-  } catch (error) {
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: error.message,
-    };
   }
-}
 
   // cancel order for test mode
   async cancelOrder(req: bookingDto) {

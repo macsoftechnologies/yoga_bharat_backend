@@ -5,6 +5,7 @@ export enum Role {
 }
 
 export enum EKYCstatus {
+    INCOMPLETE = 'incomplete',
     PENDING = 'pending',
     APPROVED = 'approved'
 }

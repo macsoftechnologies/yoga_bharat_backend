@@ -675,7 +675,8 @@ export class UsersService {
             profile_pic: req.profile_pic,
             role: Role.TRAINER,
             istrainerOn: true,
-            languageId: req.languageId
+            languageId: req.languageId,
+            ekyc_status: EKYCstatus.INCOMPLETE,
           },
         },
       );
