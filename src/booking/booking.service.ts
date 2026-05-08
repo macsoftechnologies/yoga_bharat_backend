@@ -451,8 +451,27 @@ export class BookingService {
           match.trainerIds = filters.accepted_trainerId;
 
           const trainerDoc = await this.userModel
-            .findOne({ userId: filters.accepted_trainerId }, { languageId: 1 })
+            .findOne({ userId: filters.accepted_trainerId }, { languageId: 1, istrainerOn: 1, ekyc_status: 1, isDisabled: 1 })
             .lean();
+
+          const isTrainerIneligible =
+            !trainerDoc ||
+            trainerDoc.istrainerOn === false ||
+            trainerDoc.ekyc_status !== 'approved' ||
+            trainerDoc.isDisabled === true;
+
+          if (isTrainerIneligible) {
+            return {
+              statusCode: HttpStatus.OK,
+              message: 'List of Bookings',
+              currentPage: page,
+              limit,
+              totalCount: 0,
+              totalPages: 0,
+              data: [],
+            };
+          }
+
 
           const trainerLanguageIds: string[] = trainerDoc?.languageId
             ? trainerDoc.languageId
@@ -2319,7 +2338,7 @@ export class BookingService {
   async addOrderAlerts(req: orderAlertDto) {
     try {
       const findUser = await this.userModel.findOne({ userId: req.trainerId });
-      if (findUser && !findUser.istrainerOn) {
+      if (findUser && (!findUser.istrainerOn || findUser.isDisabled || findUser.ekyc_status !== 'approved')) {
         return {
           status: HttpStatus.OK,
           message: 'Order Alert Details',
