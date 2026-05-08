@@ -1781,17 +1781,17 @@ export class BookingService {
           this.certificateModel.find({ userId }).countDocuments(),
           this.userModel
             .findOne({ userId })
-            .select('account_branch accout_no branch_address ifsc_code recepient_name')
+            .select('account_branch account_no branch_address ifsc_code recipient_name')
             .lean(),
-          this.userModel.findOne({ userId }).select('yoga_video, journey_images').lean(),
+          this.userModel.findOne({ userId }).select('yoga_video  journey_images').lean(),
         ]);
 
         const bankFieldLabels: Record<string, string> = {
           account_branch: 'Account Branch',
-          accout_no: 'Account Number',
+          account_no: 'Account Number',
           branch_address: 'Branch Address',
           ifsc_code: 'IFSC Code',
-          recepient_name: 'Recipient Name',
+          recipient_name: 'Recipient Name',
         };
 
         const missingDetails: string[] = [];
