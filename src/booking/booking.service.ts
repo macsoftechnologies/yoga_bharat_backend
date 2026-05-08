@@ -1777,13 +1777,14 @@ export class BookingService {
             return sessionEndTime.getTime() >= currentDate.getTime();
           }) || [];
 
-        const [certificatesCount, trainerBankDetails, trainerMediaDetails] = await Promise.all([
+        const [certificatesCount, trainerBankDetails, trainerMediaDetails, ekycStatus] = await Promise.all([
           this.certificateModel.find({ userId }).countDocuments(),
           this.userModel
             .findOne({ userId })
             .select('account_branch account_no branch_address ifsc_code recipient_name')
             .lean(),
           this.userModel.findOne({ userId }).select('yoga_video  journey_images').lean(),
+          this.userModel.findOne({ userId }).select('ekyc_status').lean(),
         ]);
 
         const bankFieldLabels: Record<string, string> = {
@@ -1866,13 +1867,18 @@ export class BookingService {
             ],
           })
           .countDocuments();
+        let isCompleteStatus: boolean = missingDetails.length === 0;
 
+        if(ekycStatus?.ekyc_status === 'rejected') {
+          isCompleteStatus = false
+          missingDetails.push('Your EKYC details have been rejected. Please update your EKYC details to complete your profile.')
+        }
         return {
           statusCode: HttpStatus.OK,
           message: 'Trainer Details',
           unread_Notifications: findInAppNotifications,
           profile_completion: {
-            is_complete: missingDetails.length === 0,
+            is_complete: isCompleteStatus,
             missing_details: missingDetails,
           },
           data: result,
