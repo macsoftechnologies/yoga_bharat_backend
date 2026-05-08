@@ -1878,6 +1878,7 @@ export class BookingService {
           message: 'Trainer Details',
           unread_Notifications: findInAppNotifications,
           profile_completion: {
+            EkycStatus: ekycStatus?.ekyc_status,
             is_complete: isCompleteStatus,
             missing_details: missingDetails,
           },
