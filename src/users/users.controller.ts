@@ -743,4 +743,17 @@ export class UsersController {
       }
     }
   }
+
+  @Post('/harddelete')
+  async hardDelete(@Body() req: userDto) {
+    try {
+      const removeuser = await this.usersService.hardDeleteUser(req);
+      return removeuser;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
 }

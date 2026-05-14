@@ -2055,4 +2055,26 @@ export class UsersService {
       }
     }
   }
+
+  async hardDeleteUser(req: userDto) {
+    try{
+      const deleteUser = await this.userModel.deleteOne({ userId: req.userId });
+      if(deleteUser.deletedCount > 0){
+        return {
+          statusCode: HttpStatus.OK,
+          message: "User deleted successfully",
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: "User not found",
+        };
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
 }
