@@ -1630,14 +1630,24 @@ export class BookingService {
       const findTrainer = await this.userModel.aggregate([
         { $match: { userId: userId } },
         {
+          $addFields: {
+            professional_details_array: {
+              $map: {
+                input: { $split: ['$professional_details', ','] },
+                as: 'id',
+                in: { $trim: { input: '$$id' } }, // handles spaces between commas
+              },
+            },
+          },
+        },
+        {
           $lookup: {
             from: 'yogadetails',
-            localField: 'professional_details',
+            localField: 'professional_details_array',
             foreignField: 'yogaId',
             as: 'yoga',
           },
         },
-        { $unwind: { path: '$yoga', preserveNullAndEmptyArrays: true } },
         {
           $lookup: {
             from: 'earnings',
@@ -1714,7 +1724,19 @@ export class BookingService {
         {
           $project: {
             trainer_name: '$name',
-            yoga_name: '$yoga.yoga_name',
+            yoga_name: {
+              $reduce: {
+                input: '$yoga',
+                initialValue: '',
+                in: {
+                  $cond: {
+                    if: { $eq: ['$$value', ''] },
+                    then: '$$this.yoga_name',
+                    else: { $concat: ['$$value', ', ', '$$this.yoga_name'] },
+                  },
+                },
+              },
+            },
             milestone: {
               $let: {
                 vars: {
@@ -1869,7 +1891,7 @@ export class BookingService {
           .countDocuments();
         let isCompleteStatus: boolean = missingDetails.length === 0;
 
-        if(ekycStatus?.ekyc_status === 'rejected') {
+        if (ekycStatus?.ekyc_status === 'rejected') {
           isCompleteStatus = false
           missingDetails.push('Your EKYC details have been rejected. Please update your EKYC details to complete your profile.')
         }
