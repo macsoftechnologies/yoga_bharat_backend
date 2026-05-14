@@ -1228,6 +1228,7 @@ export class UsersService {
           };
         } else if (approvetrainer && req.ekyc_status == 'rejected') {
           const findUser: any = await this.userModel.findOne({ userId: req.userId });
+          await this.certificateModel.deleteMany({ userId: findUser.userId });
           await this.smsService.sendmessage(
             findUser?.mobileNumber,
           );
