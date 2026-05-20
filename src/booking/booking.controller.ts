@@ -28,6 +28,20 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 export class BookingController {
   constructor(private readonly bookingService: BookingService) { }
 
+
+  @Post('/check-active-session')
+  async checkActiveSession(@Body() req: bookingDto) {
+    try {
+      const sessionStatus = await this.bookingService.checkClientSessionStatus(req);
+      return sessionStatus;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error,
+      };
+    }
+  }
+
   // @UseGuards(JwtGuard)
   @Post('/createbooking')
   async addBooking(@Body() req: bookingDto) {
