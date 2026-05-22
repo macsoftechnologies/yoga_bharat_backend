@@ -82,10 +82,10 @@ export class BookingService {
         clientId: req.clientId,
         client_joined_status: 'yes',
         date: todayDateStr,
-      }, 
-      null, 
-      { sort: { createdAt: -1 } }
-    );
+      },
+        null,
+        { sort: { createdAt: -1 } }
+      );
 
       if (activeClientSession) {
         const activeBooking = await this.bookingModel.findOne({
@@ -893,6 +893,56 @@ export class BookingService {
           message: 'Booking already accepted by another trainer',
         };
       }
+
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+      const todayDateStr = `${nowIST.getUTCFullYear()}-${String(nowIST.getUTCMonth() + 1).padStart(2, '0')}-${String(nowIST.getUTCDate()).padStart(2, '0')}`;
+
+      const activeSession = await this.sessionStatusModel.findOne(
+        {
+          trainerId: req.accepted_trainerId,
+          trainer_joined_status: 'yes',
+          date: todayDateStr,
+        },
+        null,
+        { sort: { createdAt: -1 } },
+      );
+
+      if (activeSession) {
+        const activeBooking = await this.bookingModel.findOne({
+          bookingId: activeSession.bookingId,
+          status: { $nin: ['completed', 'cancelled'] },
+        });
+
+        if (activeBooking) {
+          const yogaDetail: any = await this.yogaModel.findOne({
+            yogaId: activeBooking.yogaId,
+          });
+
+          if (yogaDetail) {
+            const [sessH, sessM, sessS] = activeSession.time.split(':').map(Number);
+            const sessionStartSecondsUTC = sessH * 3600 + sessM * 60 + sessS;
+            const sessionStartSecondsIST = sessionStartSecondsUTC + IST_OFFSET_MS / 1000;
+
+            const durationMinutes = parseInt(yogaDetail.duration, 10);
+            const durationSeconds = (isNaN(durationMinutes) ? 0 : durationMinutes) * 60;
+            const sessionEndSeconds = sessionStartSecondsIST + durationSeconds;
+
+            const nowTotalSecondsIST =
+              nowIST.getUTCHours() * 3600 +
+              nowIST.getUTCMinutes() * 60 +
+              nowIST.getUTCSeconds();
+
+            if (nowTotalSecondsIST < sessionEndSeconds) {
+              return {
+                statusCode: HttpStatus.CONFLICT,
+                message: 'You have an active session in progress. Please complete it before accepting a new booking.',
+              };
+            }
+          }
+        }
+      }
+
       const accept = await this.bookingModel.updateOne(
         { bookingId: req.bookingId },
         {
@@ -911,15 +961,14 @@ export class BookingService {
             },
           },
         );
-        const findBookingSessionStatus =
-          await this.sessionStatusModel.updateOne(
-            { bookingId: req.bookingId },
-            {
-              $set: {
-                trainerId: req.accepted_trainerId,
-              },
+        const findBookingSessionStatus = await this.sessionStatusModel.updateOne(
+          { bookingId: req.bookingId },
+          {
+            $set: {
+              trainerId: req.accepted_trainerId,
             },
-          );
+          },
+        );
         let inappDto: any = {} as inAppNotificationsDto;
         const acceptNotification =
           await this.inappNotificationService.addInAppNotification({
@@ -2677,7 +2726,7 @@ export class BookingService {
       const activeSession = await this.sessionStatusModel.findOne({
         trainerId: req.trainerId,
         trainer_joined_status: 'yes',
-        date: todayDateStr, 
+        date: todayDateStr,
       },
         null,
         { sort: { createdAt: -1 } },
