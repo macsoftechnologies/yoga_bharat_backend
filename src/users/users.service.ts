@@ -1820,6 +1820,19 @@ export class UsersService {
 
   async createCertificate(req: certificateDto, image) {
     try {
+      const existingCertificate = await this.certificateModel.findOne({
+        $and: [
+          { headline: { $regex: new RegExp(`^${req.headline}$`, 'i') } },
+          { userId: req.userId }
+        ]
+      });
+
+      if (existingCertificate) {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'Certificate with this title already exists',
+        };
+      }
       if (image) {
         const reqDoc = image.map((doc, index) => {
           let IsPrimary = false;
@@ -2058,9 +2071,9 @@ export class UsersService {
   }
 
   async hardDeleteUser(req: userDto) {
-    try{
+    try {
       const deleteUser = await this.userModel.deleteOne({ userId: req.userId });
-      if(deleteUser.deletedCount > 0){
+      if (deleteUser.deletedCount > 0) {
         return {
           statusCode: HttpStatus.OK,
           message: "User deleted successfully",
