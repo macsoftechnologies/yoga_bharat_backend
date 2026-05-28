@@ -1919,7 +1919,7 @@ export class BookingService {
             .findOne({ userId })
             .select('account_branch account_no branch_address ifsc_code recipient_name')
             .lean(),
-          this.userModel.findOne({ userId }).select('yoga_video  journey_images').lean(),
+          this.userModel.findOne({ userId }).select('journey_images').lean(),
           this.userModel.findOne({ userId }).select('ekyc_status').lean(),
         ]);
 
@@ -1948,13 +1948,13 @@ export class BookingService {
           missingDetails.push(...Object.values(bankFieldLabels));
         }
 
-        if (
-          !trainerMediaDetails?.yoga_video ||
-          (typeof trainerMediaDetails.yoga_video === 'string' &&
-            trainerMediaDetails.yoga_video.trim() === '')
-        ) {
-          missingDetails.push('Yoga Video');
-        }
+        // if (
+        //   !trainerMediaDetails?.yoga_video ||
+        //   (typeof trainerMediaDetails.yoga_video === 'string' &&
+        //     trainerMediaDetails.yoga_video.trim() === '')
+        // ) {
+        //   missingDetails.push('Yoga Video');
+        // }
 
         if (
           !trainerMediaDetails?.journey_images ||
