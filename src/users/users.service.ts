@@ -1409,6 +1409,27 @@ export class UsersService {
           },
         },
         {
+          $lookup: {
+            from: 'certificates',
+            localField: 'userId',
+            foreignField: 'userId',
+            as: 'certificatesRaw',
+            pipeline: [
+              {
+                $project: {
+                  _id: 0,
+                  certificateId: 1,
+                  certificate: 1,
+                  headline: 1,
+                  description: 1,
+                  createdAt: 1,
+                  updatedAt: 1,
+                },
+              },
+            ],
+          },
+        },
+        {
           $addFields: {
             health_preference: {
               $cond: {
@@ -1426,8 +1447,8 @@ export class UsersService {
             },
             certificates: {
               $cond: {
-                if: { $gt: [{ $size: { $ifNull: ['$certificates', []] } }, 0] },
-                then: '$certificates',
+                if: { $gt: [{ $size: '$certificatesRaw' }, 0] },
+                then: '$certificatesRaw',
                 else: '$$REMOVE',
               },
             },
@@ -1551,6 +1572,7 @@ export class UsersService {
         {
           $project: {
             ratingsRaw: 0,
+            certificatesRaw: 0,
             health_preference_arr: 0,
             professional_details_arr: 0,
             language_arr: 0,
