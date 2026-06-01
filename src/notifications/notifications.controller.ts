@@ -3,6 +3,7 @@ import { NotificationsService } from './notifications.service';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
 import { fcmDto } from './dto/fcm.dto';
 import { notificationsDto } from './dto/notifications.dto';
+import { SendPushDto } from './dto/send-push.dto';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -45,6 +46,19 @@ export class NotificationsController {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
       }
+    }
+  }
+
+  @Post('/send-push')
+  async sendPushNotification(@Body() req: SendPushDto) {
+    try {
+      const result = await this.notificationsService.sendPushToUsers(req);
+      return result;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
     }
   }
 }

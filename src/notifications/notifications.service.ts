@@ -6,6 +6,7 @@ import { FCMTokens } from './schema/fcm.schema';
 import { Notifications } from './schema/notifications.schema';
 import { SMSService } from 'src/auth/sms.service';
 import { User } from 'src/users/schema/user.schema';
+import { sendExpoPushNotification } from './utils/expo-notifications';
 
 @Injectable()
 export class NotificationsService {
@@ -126,6 +127,74 @@ export class NotificationsService {
         };
       }
     } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  async sendPushToUsers(req: { userIds: string[]; title?: string; message: string }) {
+    try {
+      const { userIds, title, message } = req;
+      if (!userIds || userIds.length === 0) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'userIds array is required and cannot be empty',
+        };
+      }
+      if (!message) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'message is required',
+        };
+      }
+
+      // Fetch users and get their fcm_tokens
+      const users = await this.userModel
+        .find({ userId: { $in: userIds } })
+        .select('fcm_token')
+        .lean();
+
+      if (!users || users.length === 0) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'No users found matching the provided IDs',
+        };
+      }
+
+      // Filter users who have an fcm_token
+      const tokens = users
+        .map((user) => user.fcm_token)
+        .filter((token) => !!token);
+
+      if (tokens.length === 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'No users have FCM/Expo tokens registered',
+          sentCount: 0,
+        };
+      }
+
+      // Send Expo push notifications
+      const pushTitle = title || 'Yoga Bharat';
+      const pushResult = await sendExpoPushNotification(tokens, pushTitle, message);
+
+      if (!pushResult.success) {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: 'Failed to send push notifications',
+          error: pushResult.error,
+        };
+      }
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: `Push notification successfully sent to ${tokens.length} users`,
+        data: pushResult.data,
+      };
+    } catch (error) {
+      console.error('Error in sendPushToUsers:', error);
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,

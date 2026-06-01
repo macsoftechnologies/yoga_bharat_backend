@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { inAppNotificationsDto } from './dto/inapp.dto';
 import { inAppBookingNotificationsDto } from './dto/inapp-notifications-booking.dto';
 import { User } from 'src/users/schema/user.schema';
+import { sendExpoPushNotification } from '../notifications/utils/expo-notifications';
 
 @Injectable()
 export class InAppNotificationsService {
@@ -19,6 +20,23 @@ export class InAppNotificationsService {
     try {
       const add = await this.inappNotificationsModel.create(req);
       if (add) {
+        // Send Expo Push Notification in the background safely
+        const { userId, message } = req;
+        if (userId && message) {
+          this.userModel
+            .findOne({ userId })
+            .select('fcm_token')
+            .lean()
+            .then((user) => {
+              if (user && user.fcm_token) {
+                sendExpoPushNotification(user.fcm_token, 'New Booking Update', message).catch(
+                  (err) => console.error('Background Expo push error:', err),
+                );
+              }
+            })
+            .catch((err) => console.error('Error fetching user for push:', err));
+        }
+
         return {
           statusCode: HttpStatus.OK,
           message: 'In App Notifications Added successfully',
@@ -42,6 +60,23 @@ export class InAppNotificationsService {
     try {
       const add = await this.inappNotificationsModel.create(req);
       if (add) {
+        // Send Expo Push Notification in the background safely
+        const { userId, message } = req;
+        if (userId && message) {
+          this.userModel
+            .findOne({ userId })
+            .select('fcm_token')
+            .lean()
+            .then((user) => {
+              if (user && user.fcm_token) {
+                sendExpoPushNotification(user.fcm_token, 'Yoga Bharat Update', message).catch(
+                  (err) => console.error('Background Expo push error:', err),
+                );
+              }
+            })
+            .catch((err) => console.error('Error fetching user for push:', err));
+        }
+
         return {
           statusCode: HttpStatus.OK,
           message: 'In App Notification added successfully',
