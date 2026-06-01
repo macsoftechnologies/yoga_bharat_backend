@@ -57,6 +57,8 @@ export class User extends Document {
   reject_type: string;
   @Prop()
   languageId: string;
+  @Prop()
+  fcm_token: string;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);

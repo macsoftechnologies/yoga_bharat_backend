@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-export class userDto{
+export class userDto {
     @ApiProperty()
     mobileNumber: string
     @ApiProperty()
@@ -11,4 +11,6 @@ export class userDto{
     status: string
     @ApiProperty()
     userId: string
+    @ApiProperty()
+    fcm_token: string
 }

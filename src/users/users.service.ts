@@ -465,7 +465,7 @@ export class UsersService {
 
   async addUser(req: userDto) {
     try {
-      const findUser = await this.userModel.findOne({
+      const findUser: any = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
       if (findUser?.status == "inactive") {
@@ -474,6 +474,11 @@ export class UsersService {
           message: "User has been deactivated. Please contact admin."
         }
       }
+      await this.userModel.updateOne(
+        { userId: findUser.userId },
+        { $set: { fcm_token: req.fcm_token } },
+      );
+
       if (findUser && (findUser.role == 'trainer' || 'client')) {
         await this.sendOtp(req);
         return {
