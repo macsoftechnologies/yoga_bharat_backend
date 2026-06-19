@@ -153,138 +153,10 @@ export class BookingService {
     return `${hours}:${minutes}:${seconds}`;
   }
   // test mode createbooking
-  async createBooking(req: bookingDto) {
-    try {
-      const existingBooking = await this.bookingModel.findOne({
-        transactionId: req.transactionId,
-      });
-      if (existingBooking) {
-        return {
-          statusCode: HttpStatus.CONFLICT,
-          message: 'A booking with this transaction ID already exists.',
-          data: existingBooking,
-        };
-      }
-
-      const paymentDetails = await this.razorpay.payments.fetch(
-        req.transactionId,
-      );
-
-      console.log('Payment fetch result:', {
-        id: paymentDetails.id,
-        status: paymentDetails.status,
-        method: paymentDetails.method,
-        amount: paymentDetails.amount,
-        currency: paymentDetails.currency,
-      });
-
-      const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
-
-      if (paymentDetails.status === 'authorized') {
-        if (isTestMode && paymentDetails.method === 'upi') {
-          try {
-            const capturedPayment = await this.razorpay.payments.capture(
-              req.transactionId,
-              Number(paymentDetails.amount),
-              paymentDetails.currency || 'INR',
-            );
-            console.log('Test UPI capture result:', capturedPayment.status);
-          } catch (captureErr) {
-            console.warn(
-              'Test mode UPI capture skipped (API limitation):',
-              captureErr?.error?.description,
-            );
-          }
-        } else {
-          const capturedPayment = await this.razorpay.payments.capture(
-            req.transactionId,
-            Number(paymentDetails.amount),
-            paymentDetails.currency || 'INR',
-          );
-
-          if (capturedPayment.status !== 'captured') {
-            return {
-              statusCode: HttpStatus.PAYMENT_REQUIRED,
-              message: 'Payment capture failed.',
-            };
-          }
-        }
-      } else if (paymentDetails.status !== 'captured') {
-        return {
-          statusCode: HttpStatus.PAYMENT_REQUIRED,
-          message: `Payment is in '${paymentDetails.status}' status. Cannot create booking.`,
-        };
-      }
-
-      const trainers = await this.userModel.find({
-        professional_details: {
-          $regex: new RegExp(`(^|,\\s*)${req.yogaId}(\\s*,|$)`),
-        },
-        languageId: {
-          $regex: new RegExp(`(^|,\\s*)${req.languageId}(\\s*,|$)`),
-        },
-        ekyc_status: 'approved',
-      });
-      const allTrainerIds = trainers.map((trainer) => trainer.userId);
-
-      const bookingDate = new Date(req.scheduledDate);
-      const availableTrainerIds = await this.filterAvailableTrainers(
-        allTrainerIds,
-        bookingDate,
-      );
-
-      const sAt = new Date(req.scheduledDate);
-      const formattedTime = this.formatTimeToHHMMSS(req.time);
-
-      const addbooking = await this.bookingModel.create({
-        bookingType: req.bookingType,
-        languageId: req.languageId,
-        yogaId: req.yogaId,
-        clientId: req.clientId,
-        scheduledDate: sAt,
-        time: formattedTime,
-        package_details: req.package_details,
-        sessionId: req.sessionId,
-        transactionId: req.transactionId,
-        trainerIds: availableTrainerIds,
-      });
-
-      if (addbooking) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'Booking created successfully.',
-          data: addbooking,
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.EXPECTATION_FAILED,
-          message: 'Failed to create booking.',
-        };
-      }
-    } catch (error) {
-      console.error('createBooking error:', JSON.stringify(error, null, 2));
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error?.message || JSON.stringify(error) || 'Unknown error',
-      };
-    }
-  }
-
-  // live mode createbooking
   // async createBooking(req: bookingDto) {
   //   try {
-  //     const transactionId = req.transactionId?.trim();
-
-  //     if (!transactionId) {
-  //       return {
-  //         statusCode: HttpStatus.BAD_REQUEST,
-  //         message: 'transactionId is required.',
-  //       };
-  //     }
-
-  //     // ✅ Prevent duplicate booking FIRST before hitting Razorpay
   //     const existingBooking = await this.bookingModel.findOne({
-  //       transactionId,
+  //       transactionId: req.transactionId,
   //     });
   //     if (existingBooking) {
   //       return {
@@ -294,7 +166,9 @@ export class BookingService {
   //       };
   //     }
 
-  //     const paymentDetails = await this.razorpay.payments.fetch(transactionId);
+  //     const paymentDetails = await this.razorpay.payments.fetch(
+  //       req.transactionId,
+  //     );
 
   //     console.log('Payment fetch result:', {
   //       id: paymentDetails.id,
@@ -307,36 +181,35 @@ export class BookingService {
   //     const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
 
   //     if (paymentDetails.status === 'authorized') {
-  //       if (isTestMode) {
-  //         // ✅ Test mode — skip capture, proceed directly
-  //         console.log('TEST MODE: Skipping capture, proceeding with booking.');
+  //       if (isTestMode && paymentDetails.method === 'upi') {
+  //         try {
+  //           const capturedPayment = await this.razorpay.payments.capture(
+  //             req.transactionId,
+  //             Number(paymentDetails.amount),
+  //             paymentDetails.currency || 'INR',
+  //           );
+  //           console.log('Test UPI capture result:', capturedPayment.status);
+  //         } catch (captureErr) {
+  //           console.warn(
+  //             'Test mode UPI capture skipped (API limitation):',
+  //             captureErr?.error?.description,
+  //           );
+  //         }
   //       } else {
-  //         // ✅ Live mode — must capture explicitly
-  //         console.log('LIVE MODE: Capturing payment...');
   //         const capturedPayment = await this.razorpay.payments.capture(
-  //           transactionId,
-  //           Number(paymentDetails.amount), // exact paise amount
+  //           req.transactionId,
+  //           Number(paymentDetails.amount),
   //           paymentDetails.currency || 'INR',
   //         );
-
-  //         console.log('Capture result:', {
-  //           id: capturedPayment.id,
-  //           status: capturedPayment.status,
-  //           amount: capturedPayment.amount,
-  //         });
 
   //         if (capturedPayment.status !== 'captured') {
   //           return {
   //             statusCode: HttpStatus.PAYMENT_REQUIRED,
-  //             message: `Payment capture failed. Status: ${capturedPayment.status}`,
+  //             message: 'Payment capture failed.',
   //           };
   //         }
   //       }
-  //     } else if (paymentDetails.status === 'captured') {
-  //       // ✅ Already captured (e.g. auto-captured by Razorpay) — proceed
-  //       console.log('Payment already captured, proceeding with booking.');
-  //     } else {
-  //       // ❌ failed / refunded / any other status
+  //     } else if (paymentDetails.status !== 'captured') {
   //       return {
   //         statusCode: HttpStatus.PAYMENT_REQUIRED,
   //         message: `Payment is in '${paymentDetails.status}' status. Cannot create booking.`,
@@ -344,9 +217,16 @@ export class BookingService {
   //     }
 
   //     const trainers = await this.userModel.find({
-  //       professional_details: req.yogaId,
+  //       professional_details: {
+  //         $regex: new RegExp(`(^|,\\s*)${req.yogaId}(\\s*,|$)`),
+  //       },
+  //       languageId: {
+  //         $regex: new RegExp(`(^|,\\s*)${req.languageId}(\\s*,|$)`),
+  //       },
+  //       ekyc_status: 'approved',
   //     });
   //     const allTrainerIds = trainers.map((trainer) => trainer.userId);
+
   //     const bookingDate = new Date(req.scheduledDate);
   //     const availableTrainerIds = await this.filterAvailableTrainers(
   //       allTrainerIds,
@@ -365,15 +245,14 @@ export class BookingService {
   //       time: formattedTime,
   //       package_details: req.package_details,
   //       sessionId: req.sessionId,
-  //       transactionId,
-  //       paymentStatus: 'captured',
+  //       transactionId: req.transactionId,
   //       trainerIds: availableTrainerIds,
   //     });
 
   //     if (addbooking) {
   //       return {
   //         statusCode: HttpStatus.OK,
-  //         message: 'Booking created and payment captured successfully.',
+  //         message: 'Booking created successfully.',
   //         data: addbooking,
   //       };
   //     } else {
@@ -390,6 +269,132 @@ export class BookingService {
   //     };
   //   }
   // }
+
+  // live mode createbooking
+  async createBooking(req: bookingDto) {
+    try {
+      // ✅ From live mode: trim + null guard
+      const transactionId = req.transactionId?.trim();
+      if (!transactionId) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'transactionId is required.',
+        };
+      }
+
+      // ✅ Shared: duplicate booking check before hitting Razorpay
+      const existingBooking = await this.bookingModel.findOne({ transactionId });
+      if (existingBooking) {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'A booking with this transaction ID already exists.',
+          data: existingBooking,
+        };
+      }
+
+      const paymentDetails = await this.razorpay.payments.fetch(transactionId);
+
+      console.log('Payment fetch result:', {
+        id: paymentDetails.id,
+        status: paymentDetails.status,
+        method: paymentDetails.method,
+        amount: paymentDetails.amount,
+        currency: paymentDetails.currency,
+      });
+
+      const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
+
+      if (paymentDetails.status === 'authorized') {
+        if (isTestMode) {
+          // ✅ From live mode: cleaner test-mode skip (no swallowed errors)
+          console.log('TEST MODE: Skipping capture, proceeding with booking.');
+        } else {
+          // ✅ Live mode: explicit capture with verification
+          console.log('LIVE MODE: Capturing payment...');
+          const capturedPayment = await this.razorpay.payments.capture(
+            transactionId,
+            Number(paymentDetails.amount),
+            paymentDetails.currency || 'INR',
+          );
+
+          console.log('Capture result:', {
+            id: capturedPayment.id,
+            status: capturedPayment.status,
+            amount: capturedPayment.amount,
+          });
+
+          if (capturedPayment.status !== 'captured') {
+            return {
+              statusCode: HttpStatus.PAYMENT_REQUIRED,
+              message: `Payment capture failed. Status: ${capturedPayment.status}`,
+            };
+          }
+        }
+      } else if (paymentDetails.status === 'captured') {
+        // ✅ Already auto-captured by Razorpay — proceed
+        console.log('Payment already captured, proceeding with booking.');
+      } else {
+        return {
+          statusCode: HttpStatus.PAYMENT_REQUIRED,
+          message: `Payment is in '${paymentDetails.status}' status. Cannot create booking.`,
+        };
+      }
+
+      // ✅ From test mode: rich trainer filter (regex + languageId + ekyc_status)
+      const trainers = await this.userModel.find({
+        professional_details: {
+          $regex: new RegExp(`(^|,\\s*)${req.yogaId}(\\s*,|$)`),
+        },
+        languageId: {
+          $regex: new RegExp(`(^|,\\s*)${req.languageId}(\\s*,|$)`),
+        },
+        ekyc_status: 'approved',
+      });
+
+      const allTrainerIds = trainers.map((trainer) => trainer.userId);
+      const bookingDate = new Date(req.scheduledDate);
+      const availableTrainerIds = await this.filterAvailableTrainers(
+        allTrainerIds,
+        bookingDate,
+      );
+
+      const sAt = new Date(req.scheduledDate);
+      const formattedTime = this.formatTimeToHHMMSS(req.time);
+
+      const addbooking = await this.bookingModel.create({
+        bookingType: req.bookingType,
+        languageId: req.languageId,
+        yogaId: req.yogaId,
+        clientId: req.clientId,
+        scheduledDate: sAt,
+        time: formattedTime,
+        package_details: req.package_details,
+        sessionId: req.sessionId,
+        transactionId,                  // trimmed value
+        paymentStatus: 'captured',      // ✅ from live mode
+        trainerIds: availableTrainerIds,
+      });
+
+      if (addbooking) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Booking created and payment captured successfully.',
+          data: addbooking,
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: 'Failed to create booking.',
+        };
+      }
+    } catch (error) {
+      console.error('createBooking error:', JSON.stringify(error, null, 2));
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error?.message || JSON.stringify(error) || 'Unknown error',
+      };
+    }
+  }
 
   private async filterAvailableTrainers(
     trainerIds: string[],
@@ -2897,161 +2902,6 @@ export class BookingService {
   }
 
   // cancel order for test mode
-  async cancelOrder(req: bookingDto) {
-    try {
-      const booking = await this.bookingModel.findOne({
-        bookingId: req.bookingId,
-      });
-
-      if (!booking) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'Booking not found',
-        };
-      }
-
-      if (booking.status === 'cancelled') {
-        return {
-          statusCode: HttpStatus.CONFLICT,
-          message: 'Booking already cancelled',
-        };
-      }
-
-      let refundResult;
-      const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
-
-      if (booking.transactionId && booking.transactionId !== 'NA') {
-        try {
-          const paymentDetails = await this.razorpay.payments.fetch(
-            booking.transactionId,
-          );
-
-          console.log('Payment status for refund:', {
-            status: paymentDetails.status,
-            method: paymentDetails.method,
-            amount: paymentDetails.amount,
-          });
-
-          if (paymentDetails.status === 'authorized') {
-            if (isTestMode) {
-              console.log(
-                'TEST MODE: Payment still authorized, simulating void/refund',
-              );
-              refundResult = {
-                id: `test_void_${Date.now()}`,
-                status: 'test_simulated',
-                amount: paymentDetails.amount,
-                note: 'Authorized payment voided in test mode',
-              };
-            } else {
-              try {
-                refundResult = await this.razorpay.payments.refund(
-                  booking.transactionId,
-                  { amount: Number(paymentDetails.amount) },
-                );
-              } catch (voidErr) {
-                console.warn(
-                  'Refund on authorized payment failed:',
-                  voidErr?.error?.description,
-                );
-                refundResult = {
-                  id: null,
-                  status: 'void_failed',
-                  note: 'Payment will auto-expire',
-                };
-              }
-            }
-          }
-
-          else if (paymentDetails.status === 'captured') {
-            if (isTestMode && paymentDetails.method === 'upi') {
-              console.log(
-                'TEST MODE: UPI captured payment - simulating refund',
-              );
-              refundResult = {
-                id: `test_refund_${Date.now()}`,
-                status: 'test_simulated',
-                amount: paymentDetails.amount,
-                method: 'upi',
-                note: 'Simulated in test mode — use Razorpay dashboard to issue actual refund',
-              };
-            } else {
-              refundResult = await this.razorpay.payments.refund(
-                booking.transactionId,
-                { amount: Number(paymentDetails.amount) },
-              );
-              console.log('Refund successful:', refundResult);
-            }
-          }
-
-          else if (paymentDetails.status === 'refunded') {
-            console.log('Payment already refunded, just cancelling booking');
-            refundResult = { id: null, status: 'already_refunded' };
-          }
-
-          else {
-            console.log(
-              `Payment in '${paymentDetails.status}' status, skipping refund`,
-            );
-            refundResult = { id: null, status: paymentDetails.status };
-          }
-        } catch (refundError) {
-          console.error(
-            'Razorpay refund error:',
-            JSON.stringify(refundError, null, 2),
-          );
-          return {
-            statusCode: HttpStatus.EXPECTATION_FAILED,
-            message: `Refund failed: ${refundError?.error?.description || refundError.message}`,
-            debug: refundError?.error || refundError.message,
-          };
-        }
-      } else {
-        console.log('No valid transactionId found, skipping refund');
-      }
-
-      const cancel_booking = await this.bookingModel.updateOne(
-        { bookingId: req.bookingId },
-        {
-          $set: {
-            status: 'cancelled',
-            refundId: refundResult?.id || null,
-            refundStatus: refundResult?.status || null,
-          },
-        },
-      );
-
-      await this.orderAlertModel.updateMany(
-        { bookingId: req.bookingId },
-        { $set: { status: 'cancelled' } },
-      );
-
-      if (cancel_booking.modifiedCount > 0) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: isTestMode
-            ? 'Order cancelled. Refund simulated in test mode — use Razorpay dashboard for actual refund.'
-            : 'Order cancelled and refund initiated successfully.',
-          refundId: refundResult?.id || null,
-          refundStatus: refundResult?.status || null,
-          ...(isTestMode && { debug: refundResult }),
-        };
-      } else {
-        return {
-          statusCode: HttpStatus.EXPECTATION_FAILED,
-          message: 'Failed to cancel order',
-        };
-      }
-    } catch (error) {
-      console.error('cancelOrder error:', error);
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error.message,
-      };
-    }
-  }
-
-  // cancel order for live mode
   // async cancelOrder(req: bookingDto) {
   //   try {
   //     const booking = await this.bookingModel.findOne({
@@ -3081,53 +2931,72 @@ export class BookingService {
   //           booking.transactionId,
   //         );
 
-  //         console.log('Payment status for cancel:', {
+  //         console.log('Payment status for refund:', {
   //           status: paymentDetails.status,
   //           method: paymentDetails.method,
   //           amount: paymentDetails.amount,
-  //           isTestMode,
   //         });
 
-  //         if (paymentDetails.status === 'captured') {
+  //         if (paymentDetails.status === 'authorized') {
+  //           if (isTestMode) {
+  //             console.log(
+  //               'TEST MODE: Payment still authorized, simulating void/refund',
+  //             );
+  //             refundResult = {
+  //               id: `test_void_${Date.now()}`,
+  //               status: 'test_simulated',
+  //               amount: paymentDetails.amount,
+  //               note: 'Authorized payment voided in test mode',
+  //             };
+  //           } else {
+  //             try {
+  //               refundResult = await this.razorpay.payments.refund(
+  //                 booking.transactionId,
+  //                 { amount: Number(paymentDetails.amount) },
+  //               );
+  //             } catch (voidErr) {
+  //               console.warn(
+  //                 'Refund on authorized payment failed:',
+  //                 voidErr?.error?.description,
+  //               );
+  //               refundResult = {
+  //                 id: null,
+  //                 status: 'void_failed',
+  //                 note: 'Payment will auto-expire',
+  //               };
+  //             }
+  //           }
+  //         }
+
+  //         else if (paymentDetails.status === 'captured') {
   //           if (isTestMode && paymentDetails.method === 'upi') {
-  //             // ✅ Test mode UPI — simulate refund
-  //             console.log('TEST MODE UPI: Simulating refund');
+  //             console.log(
+  //               'TEST MODE: UPI captured payment - simulating refund',
+  //             );
   //             refundResult = {
   //               id: `test_refund_${Date.now()}`,
   //               status: 'test_simulated',
   //               amount: paymentDetails.amount,
-  //               note: 'Use Razorpay dashboard to issue actual refund in test mode',
+  //               method: 'upi',
+  //               note: 'Simulated in test mode — use Razorpay dashboard to issue actual refund',
   //             };
   //           } else {
-  //             // ✅ Live mode — real refund
-  //             console.log('LIVE MODE: Initiating real refund...');
   //             refundResult = await this.razorpay.payments.refund(
   //               booking.transactionId,
   //               { amount: Number(paymentDetails.amount) },
   //             );
-  //             console.log('Refund successful:', {
-  //               id: refundResult.id,
-  //               status: refundResult.status,
-  //               amount: refundResult.amount,
-  //             });
+  //             console.log('Refund successful:', refundResult);
   //           }
-  //         } else if (paymentDetails.status === 'authorized') {
-  //           // ✅ Payment was never captured — nothing to refund
-  //           // In live mode authorized payments auto-expire after 5 days
-  //           console.log(
-  //             'Payment is authorized (not captured) — no refund needed, will auto-expire.',
-  //           );
-  //           refundResult = {
-  //             id: null,
-  //             status: 'authorized_not_captured',
-  //             note: 'Payment was never captured, will auto-expire in 5 days',
-  //           };
-  //         } else if (paymentDetails.status === 'refunded') {
-  //           console.log('Payment already refunded.');
+  //         }
+
+  //         else if (paymentDetails.status === 'refunded') {
+  //           console.log('Payment already refunded, just cancelling booking');
   //           refundResult = { id: null, status: 'already_refunded' };
-  //         } else {
+  //         }
+
+  //         else {
   //           console.log(
-  //             `Payment in '${paymentDetails.status}' — skipping refund.`,
+  //             `Payment in '${paymentDetails.status}' status, skipping refund`,
   //           );
   //           refundResult = { id: null, status: paymentDetails.status };
   //         }
@@ -3143,10 +3012,9 @@ export class BookingService {
   //         };
   //       }
   //     } else {
-  //       console.log('No valid transactionId — skipping refund.');
+  //       console.log('No valid transactionId found, skipping refund');
   //     }
 
-  //     // ✅ Always cancel the booking regardless of refund outcome
   //     const cancel_booking = await this.bookingModel.updateOne(
   //       { bookingId: req.bookingId },
   //       {
@@ -3166,9 +3034,12 @@ export class BookingService {
   //     if (cancel_booking.modifiedCount > 0) {
   //       return {
   //         statusCode: HttpStatus.OK,
-  //         message: 'Order cancelled and refund initiated successfully.',
+  //         message: isTestMode
+  //           ? 'Order cancelled. Refund simulated in test mode — use Razorpay dashboard for actual refund.'
+  //           : 'Order cancelled and refund initiated successfully.',
   //         refundId: refundResult?.id || null,
   //         refundStatus: refundResult?.status || null,
+  //         ...(isTestMode && { debug: refundResult }),
   //       };
   //     } else {
   //       return {
@@ -3184,6 +3055,166 @@ export class BookingService {
   //     };
   //   }
   // }
+
+  // cancel order for live mode
+  async cancelOrder(req: bookingDto) {
+    try {
+      const booking = await this.bookingModel.findOne({
+        bookingId: req.bookingId,
+      });
+
+      if (!booking) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Booking not found',
+        };
+      }
+
+      if (booking.status === 'cancelled') {
+        return {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'Booking already cancelled',
+        };
+      }
+
+      let refundResult;
+      const isTestMode = process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
+
+      if (booking.transactionId && booking.transactionId !== 'NA') {
+        try {
+          const paymentDetails = await this.razorpay.payments.fetch(
+            booking.transactionId,
+          );
+
+          console.log('Payment status for cancel:', {
+            status: paymentDetails.status,
+            method: paymentDetails.method,
+            amount: paymentDetails.amount,
+            isTestMode,                   // ✅ from live mode: include isTestMode in log
+          });
+
+          // ✅ From test mode: handle 'authorized' with a real refund attempt + safe fallback
+          if (paymentDetails.status === 'authorized') {
+            if (isTestMode) {
+              console.log('TEST MODE: Payment still authorized, simulating void/refund');
+              refundResult = {
+                id: `test_void_${Date.now()}`,
+                status: 'test_simulated',
+                amount: paymentDetails.amount,
+                note: 'Authorized payment voided in test mode',
+              };
+            } else {
+              // Live: attempt refund on authorized payment; if it fails, let it auto-expire
+              try {
+                refundResult = await this.razorpay.payments.refund(
+                  booking.transactionId,
+                  { amount: Number(paymentDetails.amount) },
+                );
+              } catch (voidErr) {
+                console.warn(
+                  'Refund on authorized payment failed:',
+                  voidErr?.error?.description,
+                );
+                refundResult = {
+                  id: null,
+                  status: 'void_failed',
+                  note: 'Payment will auto-expire',
+                };
+              }
+            }
+          }
+
+          else if (paymentDetails.status === 'captured') {
+            if (isTestMode && paymentDetails.method === 'upi') {
+              // ✅ Shared: UPI test-mode simulation
+              console.log('TEST MODE UPI: Simulating refund');
+              refundResult = {
+                id: `test_refund_${Date.now()}`,
+                status: 'test_simulated',
+                amount: paymentDetails.amount,
+                method: 'upi',
+                note: 'Use Razorpay dashboard to issue actual refund in test mode',
+              };
+            } else {
+              // ✅ Live: real refund
+              console.log('LIVE MODE: Initiating real refund...');
+              refundResult = await this.razorpay.payments.refund(
+                booking.transactionId,
+                { amount: Number(paymentDetails.amount) },
+              );
+              console.log('Refund successful:', {
+                id: refundResult.id,
+                status: refundResult.status,
+                amount: refundResult.amount,
+              });
+            }
+          }
+
+          else if (paymentDetails.status === 'refunded') {
+            console.log('Payment already refunded, just cancelling booking');
+            refundResult = { id: null, status: 'already_refunded' };
+          }
+
+          else {
+            console.log(`Payment in '${paymentDetails.status}' status, skipping refund`);
+            refundResult = { id: null, status: paymentDetails.status };
+          }
+
+        } catch (refundError) {
+          console.error('Razorpay refund error:', JSON.stringify(refundError, null, 2));
+          return {
+            statusCode: HttpStatus.EXPECTATION_FAILED,
+            message: `Refund failed: ${refundError?.error?.description || refundError.message}`,
+            debug: refundError?.error || refundError.message,
+          };
+        }
+      } else {
+        console.log('No valid transactionId found, skipping refund');
+      }
+
+      // ✅ Always cancel booking regardless of refund outcome
+      const cancel_booking = await this.bookingModel.updateOne(
+        { bookingId: req.bookingId },
+        {
+          $set: {
+            status: 'cancelled',
+            refundId: refundResult?.id || null,
+            refundStatus: refundResult?.status || null,
+          },
+        },
+      );
+
+      await this.orderAlertModel.updateMany(
+        { bookingId: req.bookingId },
+        { $set: { status: 'cancelled' } },
+      );
+
+      if (cancel_booking.modifiedCount > 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          // ✅ From test mode: dynamic message based on mode
+          message: isTestMode
+            ? 'Order cancelled. Refund simulated in test mode — use Razorpay dashboard for actual refund.'
+            : 'Order cancelled and refund initiated successfully.',
+          refundId: refundResult?.id || null,
+          refundStatus: refundResult?.status || null,
+          // ✅ From test mode: expose debug info only in test mode
+          ...(isTestMode && { debug: refundResult }),
+        };
+      } else {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: 'Failed to cancel order',
+        };
+      }
+    } catch (error) {
+      console.error('cancelOrder error:', error);
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
 
   async autoCancelExpiredBookings() {
     try {
