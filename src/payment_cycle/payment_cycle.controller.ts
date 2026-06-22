@@ -173,20 +173,19 @@ export class AdminPaymentCyclesController {
    * Pays full totalEarnings (no deductions)
    * Only works when status === 'approved'
    */
-  // @Post(':id/payout')
-  // initiatePayout(@Param('id') id: string) {
-  //   return this.cyclesService.initiatePayout(id);
-  // }
+  @Post(':id/payout')
+  initiatePayout(@Param('id') id: string) {
+    return this.cyclesService.initiatePayout(id);
+  }
 
   /**
    * GET /admin/payment-cycles/:id/payout-status
    * Poll Razorpay and sync latest payout status to DB
-   * ⚠️  Only useful once Razorpay payouts are re-enabled.
    */
-  // @Get(':id/payout-status')
-  // syncPayoutStatus(@Param('id') id: string) {
-  //   return this.cyclesService.syncPayoutStatus(id);
-  // }
+  @Get(':id/payout-status')
+  syncPayoutStatus(@Param('id') id: string) {
+    return this.cyclesService.syncPayoutStatus(id);
+  }
 
   /**
    * POST /admin/payment-cycles/manual-cycle
@@ -229,35 +228,40 @@ export class WebhookController {
    *     somehow initiated externally. Automatic payouts are disabled.
    *     Webhook stays active so it works immediately when re-enabled.
    */
-  // @Post('razorpay')
-  // @HttpCode(HttpStatus.OK)
-  // async handleWebhook(
-  //   @Req() req: Request,
-  //   @Headers('x-razorpay-signature') signature: string,
-  // ) {
-  //   const rawBody = (req as any).rawBody?.toString() || JSON.stringify(req.body);
-  //   const isValid = this.razorpayService.verifyWebhookSignature(rawBody, signature);
+  @Post('razorpay')
+  @HttpCode(HttpStatus.OK)
+  async handleWebhook(
+    @Req() req: Request,
+    @Headers('x-razorpay-signature') signature: string,
+  ) {
+    const rawBody = (req as any).rawBody?.toString() || JSON.stringify(req.body);
+    const isValid = this.razorpayService.verifyWebhookSignature(rawBody, signature);
 
-  //   if (!isValid) return { status: 'invalid_signature' };
+    if (!isValid) return { status: 'invalid_signature' };
 
-  //   const event   = req.body as any;
-  //   const eventId = event.event as string;
+    const event   = req.body as any;
+    const eventId = event.event as string;
 
-  //   if (eventId === 'payout.processed') {
-  //     const payout = event.payload.payout.entity;
-  //     await this.cyclesService.handlePayoutProcessed(payout.id);
-  //   }
+    if (eventId === 'payout.processed') {
+      const payout = event.payload.payout.entity;
+      await this.cyclesService.handlePayoutProcessed(payout.id);
+    }
 
-  //   if (eventId === 'payout.rejected' || eventId === 'payout.cancelled') {
-  //     const payout = event.payload.payout.entity;
-  //     await this.cyclesService.handlePayoutFailed(
-  //       payout.id,
-  //       payout.error_message || eventId,
-  //     );
-  //   }
+    if (
+      eventId === 'payout.rejected' ||
+      eventId === 'payout.cancelled' ||
+      eventId === 'payout.failed' ||
+      eventId === 'payout.reversed'
+    ) {
+      const payout = event.payload.payout.entity;
+      await this.cyclesService.handlePayoutFailed(
+        payout.id,
+        payout.error_message || eventId,
+      );
+    }
 
-  //   return { status: 'ok' };
-  // }
+    return { status: 'ok' };
+  }
 }
 
 // ─── TRAINER Controller ────────────────────────────────────────

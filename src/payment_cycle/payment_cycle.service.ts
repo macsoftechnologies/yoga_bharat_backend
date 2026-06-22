@@ -60,6 +60,31 @@ export class PaymentCyclesService {
   }
 
   // ═══════════════════════════════════════════════════════
+  // CRON — Every 10 minutes (Fallback Payout Sync)
+  // ═══════════════════════════════════════════════════════
+  @Cron('*/10 * * * *')
+  async syncInitiatedPayoutsCron() {
+    this.logger.log('⏰ Sync initiated payouts cron triggered');
+    try {
+      const initiatedCycles = await this.cycleModel.find({ status: 'payout_initiated' });
+      if (initiatedCycles.length > 0) {
+        this.logger.log(`Found ${initiatedCycles.length} cycle(s) in 'payout_initiated' status. Syncing...`);
+        for (const cycle of initiatedCycles) {
+          try {
+            await this.syncPayoutStatus(cycle.cycleId);
+          } catch (syncError) {
+            this.logger.error(
+              `Failed to auto-sync status for cycle ${cycle.cycleId}: ${syncError.message}`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error in syncInitiatedPayoutsCron: ${error.message}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
   // Generate payment cycles for all trainers
   // ═══════════════════════════════════════════════════════
   async generateCyclesForAllTrainers() {
@@ -420,11 +445,21 @@ export class PaymentCyclesService {
     await cycle.save();
 
     this.logger.log(`✅ Cycle ${cycleId} APPROVED by admin ${adminId}`);
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Cycle approved successfully',
-      data: cycle,
-    };
+
+    try {
+      this.logger.log(`Initiating automatic payout for cycle ${cycleId}...`);
+      const payoutResult = await this.initiatePayout(cycleId);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Cycle approved and payout initiated successfully',
+        data: payoutResult,
+      };
+    } catch (error) {
+      this.logger.error(`Automatic payout initiation failed for cycle ${cycleId}: ${error.message}`);
+      throw new BadRequestException(
+        `Cycle was approved, but payout failed to initiate: ${error.message}. Please check trainer details and retry payout manually.`,
+      );
+    }
   }
 
   // ═══════════════════════════════════════════════════════
@@ -531,160 +566,173 @@ export class PaymentCyclesService {
   //     To re-enable: uncomment this method and restore
   //     the POST /:id/payout route in the controller.
   // ═══════════════════════════════════════════════════════
-  // async initiatePayout(cycleId: string) {
-  //   const cycle = await this.cycleModel.findOne({ cycleId });
-  //   if (!cycle) throw new NotFoundException('Cycle not found');
-  //
-  //   if (cycle.status !== 'approved') {
-  //     throw new BadRequestException(
-  //       `Payout can only be initiated for APPROVED cycles. Current: ${cycle.status}`,
-  //     );
-  //   }
-  //
-  //   if (cycle.totalEarnings <= 0) {
-  //     throw new BadRequestException('Total earnings must be greater than 0');
-  //   }
-  //
-  //   try {
-  //     // Step 1 — Razorpay Contact
-  //     const contact = await this.razorpayService.createContact({
-  //       name:        cycle.recipient_name || cycle.trainerName,
-  //       email:       cycle.trainerEmail,
-  //       contact:     cycle.trainerMobile,
-  //       referenceId: cycle.trainerId,
-  //     });
-  //
-  //     // Step 2 — Fund Account (bank account linked to contact)
-  //     const fundAccount = await this.razorpayService.createFundAccount({
-  //       contactId:     contact.id,
-  //       recipientName: cycle.recipient_name || cycle.trainerName,
-  //       accountNo:     cycle.account_no,
-  //       ifscCode:      cycle.ifsc_code,
-  //     });
-  //
-  //     // Step 3 — Payout (full earned_amount, no deductions)
-  //     const payout = await this.razorpayService.createPayout({
-  //       fundAccountId: fundAccount.id,
-  //       amountRupees:  cycle.totalEarnings,
-  //       cycleId:       cycle._id.toString(),
-  //       trainerName:   cycle.trainerName,
-  //       mode:          'IMPS',
-  //     });
-  //
-  //     cycle.status                = 'payout_initiated';
-  //     cycle.razorpayContactId     = contact.id;
-  //     cycle.razorpayFundAccountId = fundAccount.id;
-  //     cycle.razorpayPayoutId      = payout.id;
-  //     cycle.razorpayPayoutStatus  = payout.status;
-  //     await cycle.save();
-  //
-  //     this.logger.log(
-  //       `💸 Payout initiated | Trainer: ${cycle.trainerName} | ` +
-  //       `₹${cycle.totalEarnings} → ${cycle.account_no} (${cycle.ifsc_code}) | ` +
-  //       `Payout ID: ${payout.id}`,
-  //     );
-  //
-  //     return {
-  //       success:      true,
-  //       payoutId:     payout.id,
-  //       payoutStatus: payout.status,
-  //       amount:       cycle.totalEarnings,
-  //       trainerName:  cycle.trainerName,
-  //       bank: {
-  //         recipient_name: cycle.recipient_name,
-  //         account_no:     cycle.account_no,
-  //         ifsc_code:      cycle.ifsc_code,
-  //         account_branch: cycle.account_branch,
-  //       },
-  //     };
-  //   } catch (error) {
-  //     cycle.status        = 'failed';
-  //     cycle.failureReason = error.message;
-  //     await cycle.save();
-  //     throw error;
-  //   }
-  // }
+  // ═══════════════════════════════════════════════════════
+  // ADMIN — Initiate Razorpay payout
+  // ═══════════════════════════════════════════════════════
+  async initiatePayout(cycleId: string) {
+    const cycle = await this.cycleModel.findOne({ cycleId });
+    if (!cycle) throw new NotFoundException('Cycle not found');
+
+    if (!['approved', 'failed'].includes(cycle.status)) {
+      throw new BadRequestException(
+        `Payout can only be initiated for APPROVED or FAILED cycles. Current: ${cycle.status}`,
+      );
+    }
+
+    if (cycle.totalEarnings <= 0) {
+      throw new BadRequestException('Total earnings must be greater than 0');
+    }
+
+    const missing = [
+      !cycle.account_no && 'account_no',
+      !cycle.ifsc_code && 'ifsc_code',
+      !cycle.recipient_name && 'recipient_name',
+    ].filter(Boolean);
+
+    if (missing.length) {
+      throw new BadRequestException(
+        `Cannot initiate payout — trainer bank details incomplete. Missing: ${missing.join(', ')}`,
+      );
+    }
+
+    try {
+      // Step 1 — Razorpay Contact
+      const contact = await this.razorpayService.createContact({
+        name:        cycle.recipient_name || cycle.trainerName,
+        email:       cycle.trainerEmail,
+        contact:     cycle.trainerMobile,
+        referenceId: cycle.trainerId,
+      });
+
+      // Step 2 — Fund Account (bank account linked to contact)
+      const fundAccount = await this.razorpayService.createFundAccount({
+        contactId:     contact.id,
+        recipientName: cycle.recipient_name || cycle.trainerName,
+        accountNo:     cycle.account_no,
+        ifscCode:      cycle.ifsc_code,
+      });
+
+      // Step 3 — Payout (full earned_amount, no deductions)
+      const payout = await this.razorpayService.createPayout({
+        fundAccountId: fundAccount.id,
+        amountRupees:  cycle.totalEarnings,
+        cycleId:       cycle._id.toString(),
+        trainerName:   cycle.trainerName,
+        mode:          'IMPS',
+      });
+
+      cycle.status                = 'payout_initiated';
+      cycle.razorpayContactId     = contact.id;
+      cycle.razorpayFundAccountId = fundAccount.id;
+      cycle.razorpayPayoutId      = payout.id;
+      cycle.razorpayPayoutStatus  = payout.status;
+      cycle.failureReason         = null; // Reset failure reason on retry
+      await cycle.save();
+
+      this.logger.log(
+        `💸 Payout initiated | Trainer: ${cycle.trainerName} | ` +
+        `₹${cycle.totalEarnings} → ${cycle.account_no} (${cycle.ifsc_code}) | ` +
+        `Payout ID: ${payout.id}`,
+      );
+
+      return {
+        success:      true,
+        payoutId:     payout.id,
+        payoutStatus: payout.status,
+        amount:       cycle.totalEarnings,
+        trainerName:  cycle.trainerName,
+        bank: {
+          recipient_name: cycle.recipient_name,
+          account_no:     cycle.account_no,
+          ifsc_code:      cycle.ifsc_code,
+          account_branch: cycle.account_branch,
+        },
+      };
+    } catch (error) {
+      cycle.status        = 'failed';
+      cycle.failureReason = error.message;
+      await cycle.save();
+      throw error;
+    }
+  }
 
   // ═══════════════════════════════════════════════════════
   // Webhook — payout.processed → mark paid
-  // ⚠️  Kept for future Razorpay re-integration
   // ═══════════════════════════════════════════════════════
-  // async handlePayoutProcessed(payoutId: string) {
-  //   const cycle = await this.cycleModel.findOne({ razorpayPayoutId: payoutId });
-  //   if (!cycle) {
-  //     this.logger.warn(`No cycle found for payout: ${payoutId}`);
-  //     return;
-  //   }
+  async handlePayoutProcessed(payoutId: string) {
+    const cycle = await this.cycleModel.findOne({ razorpayPayoutId: payoutId });
+    if (!cycle) {
+      this.logger.warn(`No cycle found for payout: ${payoutId}`);
+      return;
+    }
 
-  //   cycle.status              = 'paid';
-  //   cycle.razorpayPayoutStatus = 'processed';
-  //   cycle.paidAt              = new Date();
-  //   await cycle.save();
+    cycle.status              = 'paid';
+    cycle.razorpayPayoutStatus = 'processed';
+    cycle.paidAt              = new Date();
+    await cycle.save();
 
-  //   await this.earningModel.updateMany(
-  //     { paymentCycleId: cycle.cycleId },
-  //     { $set: { settlementStatus: 'settled' } },
-  //   );
+    await this.earningModel.updateMany(
+      { paymentCycleId: cycle.cycleId },
+      { $set: { settlementStatus: 'settled' } },
+    );
 
-  //   this.logger.log(
-  //     `💰 PAID | Trainer: ${cycle.trainerName} | ₹${cycle.totalEarnings} | Payout: ${payoutId}`,
-  //   );
-  // }
+    this.logger.log(
+      `💰 PAID | Trainer: ${cycle.trainerName} | ₹${cycle.totalEarnings} | Payout: ${payoutId}`,
+    );
+  }
 
   // ═══════════════════════════════════════════════════════
-  // Webhook — payout.rejected / payout.cancelled
-  // ⚠️  Kept for future Razorpay re-integration
+  // Webhook — payout.rejected / payout.cancelled / payout.failed / payout.reversed
   // ═══════════════════════════════════════════════════════
-  // async handlePayoutFailed(payoutId: string, reason: string) {
-  //   const cycle = await this.cycleModel.findOne({ razorpayPayoutId: payoutId });
-  //   if (!cycle) return;
+  async handlePayoutFailed(payoutId: string, reason: string) {
+    const cycle = await this.cycleModel.findOne({ razorpayPayoutId: payoutId });
+    if (!cycle) return;
 
-  //   cycle.status              = 'failed';
-  //   cycle.razorpayPayoutStatus = 'rejected';
-  //   cycle.failureReason       = reason;
-  //   await cycle.save();
+    cycle.status              = 'failed';
+    cycle.razorpayPayoutStatus = 'rejected';
+    cycle.failureReason       = reason;
+    await cycle.save();
 
-  //   this.logger.warn(
-  //     `⚠️ Payout FAILED | Trainer: ${cycle.trainerName} | Reason: ${reason}`,
-  //   );
-  // }
+    this.logger.warn(
+      `⚠️ Payout FAILED | Trainer: ${cycle.trainerName} | Reason: ${reason}`,
+    );
+  }
 
   // ═══════════════════════════════════════════════════════
   // Poll Razorpay for latest payout status
-  // ⚠️  Kept for future Razorpay re-integration
   // ═══════════════════════════════════════════════════════
-  // async syncPayoutStatus(cycleId: string) {
-  //   const cycle = await this.cycleModel.findOne({ cycleId });
-  //   if (!cycle) throw new NotFoundException('Cycle not found');
-  //   if (!cycle.razorpayPayoutId) {
-  //     throw new BadRequestException('No payout has been initiated for this cycle');
-  //   }
+  async syncPayoutStatus(cycleId: string) {
+    const cycle = await this.cycleModel.findOne({ cycleId });
+    if (!cycle) throw new NotFoundException('Cycle not found');
+    if (!cycle.razorpayPayoutId) {
+      throw new BadRequestException('No payout has been initiated for this cycle');
+    }
 
-  //   const payout = await this.razorpayService.getPayoutStatus(cycle.razorpayPayoutId);
-  //   cycle.razorpayPayoutStatus = payout.status;
+    const payout = await this.razorpayService.getPayoutStatus(cycle.razorpayPayoutId);
+    cycle.razorpayPayoutStatus = payout.status;
 
-  //   if (payout.status === 'processed') {
-  //     cycle.status = 'paid';
-  //     cycle.paidAt = new Date();
-  //     await this.earningModel.updateMany(
-  //       { paymentCycleId: cycle.cycleId },
-  //       { $set: { settlementStatus: 'settled' } },
-  //     );
-  //   }
+    if (payout.status === 'processed') {
+      cycle.status = 'paid';
+      cycle.paidAt = new Date();
+      await this.earningModel.updateMany(
+        { paymentCycleId: cycle.cycleId },
+        { $set: { settlementStatus: 'settled' } },
+      );
+    }
 
-  //   if (['rejected', 'cancelled'].includes(payout.status)) {
-  //     cycle.status        = 'failed';
-  //     cycle.failureReason = payout.error_message || payout.status;
-  //   }
+    if (['rejected', 'cancelled', 'failed', 'reversed'].includes(payout.status)) {
+      cycle.status        = 'failed';
+      cycle.failureReason = payout.error_message || payout.status;
+    }
 
-  //   await cycle.save();
-  //   return {
-  //     cycleId,
-  //     payoutId:     payout.id,
-  //     payoutStatus: payout.status,
-  //     cycleStatus:  cycle.status,
-  //   };
-  // }
+    await cycle.save();
+    return {
+      cycleId,
+      payoutId:     payout.id,
+      payoutStatus: payout.status,
+      cycleStatus:  cycle.status,
+    };
+  }
 
   // ═══════════════════════════════════════════════════════
   // ADMIN — Dashboard stats
