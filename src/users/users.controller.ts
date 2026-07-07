@@ -34,6 +34,7 @@ import { userEditDto } from './dto/user-edit.dto';
 import { certificateDto } from './dto/certificates.dto';
 import { userDeleteDto } from './dto/delete.dto';
 import { trainerAvailabilityDto } from './dto/trainer_availability.dto';
+import { updateTokenDto } from './dto/update_token.dto';
 
 @Controller('users')
 export class UsersController {
@@ -720,10 +721,10 @@ export class UsersController {
 
   @Post('/health_prefbyuserid')
   async getNotUserHealthPreferences(@Body() req: userDto) {
-    try{
+    try {
       const list = await this.usersService.getUserHealth(req);
       return list
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
@@ -733,10 +734,10 @@ export class UsersController {
 
   @Post('/yogabyuserid')
   async getNotUserYogas(@Body() req: userDto) {
-    try{
+    try {
       const list = await this.usersService.getUserYogas(req);
       return list
-    } catch(error) {
+    } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
@@ -754,6 +755,19 @@ export class UsersController {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error,
       };
+    }
+  }
+
+  @Post('usertoken')
+  async updateUserFCMToken(@Body() req: updateTokenDto) {
+    try {
+      const token = await this.usersService.updateToken(req);
+      return token
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
     }
   }
 }

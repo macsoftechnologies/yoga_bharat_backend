@@ -30,6 +30,7 @@ import { trainerAvailabilityDto } from './dto/trainer_availability.dto';
 import { TrainerEvents } from './schema/trainer_availability.schema';
 import { SMSService } from 'src/auth/sms.service';
 import { YogaDetails } from 'src/yoga/schema/yoga_details.schema';
+import { updateTokenDto } from './dto/update_token.dto';
 
 @Injectable()
 export class UsersService {
@@ -2116,6 +2117,32 @@ export class UsersService {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
       };
+    }
+  }
+
+  async updateToken(req: updateTokenDto) {
+    try {
+      const updateToken = await this.userModel.updateOne({ userId: req.userId }, {
+        $set: {
+          fcm_token: req.fcm_token
+        }
+      });
+      if (updateToken.modifiedCount > 0) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: "Token Updated successfully",
+        }
+      } else {
+        return {
+          statusCode: HttpStatus.EXPECTATION_FAILED,
+          message: "failed to update token",
+        }
+      }
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      }
     }
   }
 }
