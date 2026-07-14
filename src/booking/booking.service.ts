@@ -1918,7 +1918,7 @@ export class BookingService {
             return sessionEndTime.getTime() >= currentDate.getTime();
           }) || [];
 
-        const [certificatesCount, trainerBankDetails, trainerMediaDetails, ekycStatus] = await Promise.all([
+        const [certificatesCount, trainerBankDetails, trainerMediaDetails, ekycStatus, trainerOnStatus] = await Promise.all([
           this.certificateModel.find({ userId }).countDocuments(),
           this.userModel
             .findOne({ userId })
@@ -1926,6 +1926,7 @@ export class BookingService {
             .lean(),
           this.userModel.findOne({ userId }).select('journey_images').lean(),
           this.userModel.findOne({ userId }).select('ekyc_status').lean(),
+          this.userModel.findOne({ userId }).select('istrainerOn').lean(),
         ]);
 
         const bankFieldLabels: Record<string, string> = {
@@ -2018,6 +2019,7 @@ export class BookingService {
           statusCode: HttpStatus.OK,
           message: 'Trainer Details',
           unread_Notifications: findInAppNotifications,
+          trainerOnStatus: trainerOnStatus?.istrainerOn,
           profile_completion: {
             EkycStatus: ekycStatus?.ekyc_status,
             is_complete: isCompleteStatus,
