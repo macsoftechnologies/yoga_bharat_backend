@@ -26,6 +26,7 @@ import { PassedOrders } from 'src/passed_orders/schema/passed_orders.schema';
 import { SessionStatus } from 'src/session-status/schema/session_status.schema';
 import { Rating } from 'src/ratings/schema/rating.schema';
 import { Certificate } from 'src/users/schema/cerificates.schema';
+import { parseDurationToSeconds } from './parsetime.shared.service';
 
 @Injectable()
 export class BookingService {
@@ -2189,6 +2190,29 @@ export class BookingService {
     }
   }
 
+  private async isTrainerBusy(trainerId: string, todayDateStr: string, nowTotalSecondsIST: number, IST_OFFSET_MS: number): Promise<boolean> {
+    const activeSessions = await this.sessionStatusModel.find({
+      trainerId,
+      trainer_joined_status: 'yes',
+      date: todayDateStr,
+    }).lean();
+
+    for (const session of activeSessions) {
+      const booking = await this.bookingModel.findOne({ bookingId: session.bookingId });
+      if (!booking) continue;
+      const yogaDetail: any = await this.yogaModel.findOne({ yogaId: booking.yogaId });
+      if (!yogaDetail) continue;
+
+      const [sessH, sessM, sessS] = session.time.split(':').map(Number);
+      const start = sessH * 3600 + sessM * 60 + sessS + IST_OFFSET_MS / 1000;
+      const duration = parseDurationToSeconds(yogaDetail.duration);
+      const end = start + duration;
+
+      if (nowTotalSecondsIST >= start && nowTotalSecondsIST < end) return true;
+    }
+    return false;
+  }
+
   async sendInAppNotificationWithRoomDetails(req: userRoomDetialsDto) {
     try {
       const userDetails = await this.userModel.findOne({ userId: req.userId });
@@ -2211,7 +2235,19 @@ export class BookingService {
           ekyc_status: 'approved',
         });
 
-        if (findBooking && findTrainers.length > 0) {
+        const now = new Date();
+        const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+        const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+        const nowTotalSecondsIST = nowIST.getUTCHours() * 3600 + nowIST.getUTCMinutes() * 60 + nowIST.getUTCSeconds();
+        const todayDateStr = `${nowIST.getUTCFullYear()}-${String(nowIST.getUTCMonth() + 1).padStart(2, '0')}-${String(nowIST.getUTCDate()).padStart(2, '0')}`;
+
+        const availableTrainers: typeof findTrainers = [];
+        for (const trainer of findTrainers) {
+          const busy = await this.isTrainerBusy(trainer.userId, todayDateStr, nowTotalSecondsIST, IST_OFFSET_MS);
+          if (!busy) availableTrainers.push(trainer);
+        }
+
+        if (findBooking && availableTrainers.length > 0) {
           const OrdersAlerts = findBooking?.trainerIds.map(async (trainer) => {
             await this.orderAlertModel.create({
               ...req,
@@ -2222,7 +2258,7 @@ export class BookingService {
             });
           });
           if (OrdersAlerts) {
-            await findTrainers.map(async (trainer) => {
+            await availableTrainers.map(async (trainer) => {
               const addNotification =
                 await this.inappNotificationService.addInAppBookingNotification({
                   ...req,
@@ -2730,44 +2766,38 @@ export class BookingService {
       const todayMatchStr = `${todayMonth} ${String(todayDay).padStart(2, '0')} ${todayYear}`;
       const todayDateStr = `${todayYear}-${String(nowIST.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
 
-      const activeSession = await this.sessionStatusModel.findOne({
+      const activeSessions = await this.sessionStatusModel.find({
         trainerId: req.trainerId,
         trainer_joined_status: 'yes',
         date: todayDateStr,
-      },
-        null,
-        { sort: { createdAt: -1 } },
-      );
+      }).lean();
 
-      if (activeSession) {
-        const booking = await this.bookingModel.findOne({
-          bookingId: activeSession.bookingId,
-        });
+      let trainerIsBusy = false;
 
-        if (booking) {
-          const yogaDetail: any = await this.yogaModel.findOne({
-            yogaId: booking.yogaId,
-          });
+      for (const session of activeSessions) {
+        const booking = await this.bookingModel.findOne({ bookingId: session.bookingId });
+        if (!booking) continue;
 
-          if (yogaDetail) {
-            const [sessH, sessM, sessS] = activeSession.time.split(':').map(Number);
+        const yogaDetail: any = await this.yogaModel.findOne({ yogaId: booking.yogaId });
+        if (!yogaDetail) continue;
 
-            const sessionStartSecondsUTC = sessH * 3600 + sessM * 60 + sessS;
-            const sessionStartSecondsIST = sessionStartSecondsUTC + IST_OFFSET_MS / 1000;
+        const [sessH, sessM, sessS] = session.time.split(':').map(Number);
+        const sessionStartSecondsIST = sessH * 3600 + sessM * 60 + sessS + IST_OFFSET_MS / 1000;
+        const durationSeconds = parseDurationToSeconds(yogaDetail.duration);
+        const sessionEndSeconds = sessionStartSecondsIST + durationSeconds;
 
-            const durationMinutes = parseInt(yogaDetail.duration, 10);
-            const durationSeconds = (isNaN(durationMinutes) ? 0 : durationMinutes) * 60;
-            const sessionEndSeconds = sessionStartSecondsIST + durationSeconds;
-
-            if (nowTotalSecondsIST < sessionEndSeconds) {
-              return {
-                status: HttpStatus.OK,
-                message: 'Order Alert Details',
-                data: {},
-              };
-            }
-          }
+        if (nowTotalSecondsIST >= sessionStartSecondsIST && nowTotalSecondsIST < sessionEndSeconds) {
+          trainerIsBusy = true;
+          break;
         }
+      }
+
+      if (trainerIsBusy) {
+        return {
+          status: HttpStatus.OK,
+          message: 'Order Alert Details',
+          data: {},
+        };
       }
 
       const getOrderAlert = await this.orderAlertModel.aggregate([
