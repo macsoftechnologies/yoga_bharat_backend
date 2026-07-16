@@ -91,6 +91,7 @@ export class BookingService {
       if (activeClientSession) {
         const activeBooking = await this.bookingModel.findOne({
           bookingId: activeClientSession.bookingId,
+          status: { $nin: ['completed', 'cancelled'] },
         });
 
         if (activeBooking) {
