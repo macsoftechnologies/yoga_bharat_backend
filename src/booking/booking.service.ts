@@ -2199,7 +2199,10 @@ export class BookingService {
     }).lean();
 
     for (const session of activeSessions) {
-      const booking = await this.bookingModel.findOne({ bookingId: session.bookingId });
+      const booking = await this.bookingModel.findOne({
+        bookingId: session.bookingId,
+        status: { $nin: ['completed', 'cancelled'] },
+      });
       if (!booking) continue;
       const yogaDetail: any = await this.yogaModel.findOne({ yogaId: booking.yogaId });
       if (!yogaDetail) continue;
@@ -2776,7 +2779,10 @@ export class BookingService {
       let trainerIsBusy = false;
 
       for (const session of activeSessions) {
-        const booking = await this.bookingModel.findOne({ bookingId: session.bookingId });
+        const booking = await this.bookingModel.findOne({
+          bookingId: session.bookingId,
+          status: { $nin: ['completed', 'cancelled'] },
+        });
         if (!booking) continue;
 
         const yogaDetail: any = await this.yogaModel.findOne({ yogaId: booking.yogaId });
