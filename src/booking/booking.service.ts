@@ -544,6 +544,33 @@ export class BookingService {
             };
           }
 
+          const now = new Date();
+          const nowIST = new Date(now.getTime() + this.IST_OFFSET_MS);
+          const todayDateStr = `${nowIST.getUTCFullYear()}-${String(nowIST.getUTCMonth() + 1).padStart(2, '0')}-${String(nowIST.getUTCDate()).padStart(2, '0')}`;
+          const nowTotalSecondsIST =
+            nowIST.getUTCHours() * 3600 +
+            nowIST.getUTCMinutes() * 60 +
+            nowIST.getUTCSeconds();
+
+          const busy = await this.isTrainerBusy(
+            filters.accepted_trainerId,
+            todayDateStr,
+            nowTotalSecondsIST,
+            this.IST_OFFSET_MS,
+          );
+
+          if (busy) {
+            return {
+              statusCode: HttpStatus.OK,
+              message: 'List of Bookings',
+              currentPage: page,
+              limit,
+              totalCount: 0,
+              totalPages: 0,
+              data: [],
+            };
+          }
+
 
           const trainerLanguageIds: string[] = trainerDoc?.languageId
             ? trainerDoc.languageId
