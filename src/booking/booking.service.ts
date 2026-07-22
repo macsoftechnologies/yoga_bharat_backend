@@ -1947,7 +1947,7 @@ export class BookingService {
             return sessionEndTime.getTime() >= currentDate.getTime();
           }) || [];
 
-        const [certificatesCount, trainerBankDetails, trainerMediaDetails, ekycStatus, trainerOnStatus] = await Promise.all([
+        const [certificatesCount, trainerBankDetails, trainerMediaDetails, ekycStatus, rejectType, trainerOnStatus] = await Promise.all([
           this.certificateModel.find({ userId }).countDocuments(),
           this.userModel
             .findOne({ userId })
@@ -1955,6 +1955,7 @@ export class BookingService {
             .lean(),
           this.userModel.findOne({ userId }).select('journey_images').lean(),
           this.userModel.findOne({ userId }).select('ekyc_status').lean(),
+          this.userModel.findOne({ userId }).select('reject_type').lean(),
           this.userModel.findOne({ userId }).select('istrainerOn').lean(),
         ]);
 
@@ -2049,6 +2050,7 @@ export class BookingService {
           message: 'Trainer Details',
           unread_Notifications: findInAppNotifications,
           trainerOnStatus: trainerOnStatus?.istrainerOn,
+          rejectType: rejectType,
           profile_completion: {
             EkycStatus: ekycStatus?.ekyc_status,
             is_complete: isCompleteStatus,
