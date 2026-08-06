@@ -242,6 +242,11 @@ export class WebhookController {
     const event   = req.body as any;
     const eventId = event.event as string;
 
+    if (eventId.startsWith('refund.')) {
+      const refund = event.payload.refund.entity;
+      await this.cyclesService.handleRefundWebhook(refund);
+    }
+
     if (eventId === 'payout.processed') {
       const payout = event.payload.payout.entity;
       await this.cyclesService.handlePayoutProcessed(payout.id);

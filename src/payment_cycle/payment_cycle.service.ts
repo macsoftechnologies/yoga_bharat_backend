@@ -30,6 +30,8 @@ import {
 // Admin must manually approve and mark cycles as paid via POST /:id/mark-paid.
 // Razorpay payout code is preserved below for future use.
 
+import { Booking } from 'src/booking/schema/booking.schema';
+
 @Injectable()
 export class PaymentCyclesService {
   private readonly logger = new Logger(PaymentCyclesService.name);
@@ -46,6 +48,9 @@ export class PaymentCyclesService {
 
     @InjectModel(YogaDetails.name)
     private readonly yogaModel: Model<YogaDetails>,
+
+    @InjectModel(Booking.name)
+    private readonly bookingModel: Model<Booking>,
 
     private readonly razorpayService: RazorpayService,
   ) {}
@@ -695,6 +700,37 @@ export class PaymentCyclesService {
 
     this.logger.warn(
       `⚠️ Payout FAILED | Trainer: ${cycle.trainerName} | Reason: ${reason}`,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // Webhook — refund.processed / refund.failed / refund.speed_changed
+  // ═══════════════════════════════════════════════════════
+  async handleRefundWebhook(refund: any) {
+    const refundId = refund.id;
+    const paymentId = refund.payment_id;
+    const status = refund.status; // e.g. 'processed', 'failed', 'pending'
+
+    this.logger.log(
+      `[Razorpay Webhook] Refund update received: refundId=${refundId}, paymentId=${paymentId}, status=${status}`,
+    );
+
+    const updateResult = await this.bookingModel.updateOne(
+      {
+        $or: [
+          { refundId: refundId },
+          { transactionId: paymentId },
+        ],
+      },
+      {
+        $set: {
+          refundStatus: status,
+        },
+      },
+    );
+
+    this.logger.log(
+      `[Razorpay Webhook] Booking refundStatus update result: matched=${updateResult.matchedCount}, modified=${updateResult.modifiedCount}`,
     );
   }
 
