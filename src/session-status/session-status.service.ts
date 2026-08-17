@@ -48,6 +48,17 @@ export class SessionStatusService {
           },
         },
       );
+
+      if (req.client_joined_status?.toLowerCase() === 'yes' && req.bookingId) {
+        const booking = await this.bookingModel.findOne({ bookingId: req.bookingId });
+        if (booking && !booking.startedAt) {
+          await this.bookingModel.updateOne(
+            { bookingId: req.bookingId },
+            { $set: { startedAt: new Date().toISOString() } },
+          );
+        }
+      }
+
       if (updatesession.modifiedCount > 0) {
         return {
           statusCode: HttpStatus.OK,

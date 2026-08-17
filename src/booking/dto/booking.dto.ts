@@ -31,4 +31,10 @@ export class bookingDto {
   refundId: string;
   @ApiProperty()
   refundStatus: string;
+  @ApiProperty()
+  session_duration: string;
+  @ApiProperty()
+  startedAt: string;
+  @ApiProperty()
+  endedAt: string;
 }

@@ -1157,11 +1157,32 @@ export class BookingService {
               bookingId: req.bookingId,
               yogaId: findBooking.yogaId,
             });
+            const endedAt = new Date().toISOString();
+            let session_duration = '0 mins';
+
+            const startedAt = findBooking.startedAt;
+            if (startedAt) {
+              const startMs = new Date(startedAt).getTime();
+              const endMs = new Date(endedAt).getTime();
+              if (!isNaN(startMs) && !isNaN(endMs) && endMs > startMs) {
+                const totalSeconds = Math.floor((endMs - startMs) / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                if (hours > 0) {
+                  session_duration = `${hours} hr ${minutes} mins`;
+                } else {
+                  session_duration = `${minutes} mins`;
+                }
+              }
+            }
+
             await this.bookingModel.updateOne(
               { bookingId: req.bookingId },
               {
                 $set: {
                   status: 'completed',
+                  endedAt,
+                  session_duration,
                 },
               },
             );
