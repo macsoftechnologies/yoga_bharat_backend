@@ -4,7 +4,7 @@ import { v4 as uuid } from 'uuid/dist/index.js';
 @Schema({ timestamps: true })
 
 export class Booking extends Document {
-  @Prop({default: uuid})
+  @Prop({ default: uuid })
   bookingId: string;
   @Prop()
   bookingType: string;
@@ -26,7 +26,7 @@ export class Booking extends Document {
   sessionId: string;
   @Prop()
   transactionId: string;
-  @Prop({default: 'opened'})
+  @Prop({ default: 'opened' })
   status: string;
   @Prop()
   trainerIds: [];
@@ -34,6 +34,12 @@ export class Booking extends Document {
   refundId: string;
   @Prop()
   refundStatus: string;
+  @Prop()
+  session_duration: string;
+  @Prop()
+  startedAt: string;
+  @Prop()
+  endedAt: string;
 }
 
 export const bookingSchema = SchemaFactory.createForClass(Booking);

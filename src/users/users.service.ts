@@ -1038,6 +1038,12 @@ export class UsersService {
         };
       }
 
+      if (filters.ekyc_status) {
+        match.ekyc_status = {
+          $regex: new RegExp(`^${filters.ekyc_status.trim()}$`, 'i'),
+        };
+      }
+
       if (filters.fromDate || filters.toDate) {
         match.createdAt = {};
         if (filters.fromDate) {

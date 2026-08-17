@@ -490,6 +490,8 @@ export class UsersController {
     @Query('isExport') isExport?: string,
     @Query('gender') gender?: string,
     @Query('languageId') languageId?: string,
+    @Query('ekyc_status') ekyc_status?: string,
+    @Query('ekycStatus') ekycStatus?: string,
   ) {
     try {
       const getlist = await this.usersService.getTrainers(+page, +limit, {
@@ -500,7 +502,8 @@ export class UsersController {
         toDate,
         isExport,
         gender,
-        languageId
+        languageId,
+        ekyc_status: ekyc_status || ekycStatus,
       });
       return getlist;
     } catch (error) {
