@@ -22,6 +22,7 @@ import { DashboardStatsDto } from './dto/Dashboardstats.dto';
 import { userRoomDetialsDto } from './dto/userRoomDetails.dto';
 import { GetEarningsDto } from './dto/getearnings.dto';
 import { orderAlertDto } from './dto/order_alert.dto';
+import { endSessionDto } from './dto/endSession.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Controller('booking')
@@ -317,6 +318,19 @@ export class BookingController {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message,
+      };
+    }
+  }
+
+  @Post('/endsession')
+  async endSession(@Body() req: endSessionDto) {
+    try {
+      const result = await this.bookingService.endSession(req);
+      return result;
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error?.message,
       };
     }
   }

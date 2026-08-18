@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Booking } from './schema/booking.schema';
 import { Model, PipelineStage } from 'mongoose';
 import { bookingDto } from './dto/booking.dto';
+import axios from 'axios';
 import { User } from 'src/users/schema/user.schema';
 import { Earning } from '../booking/schema/earnings.scheam';
 import { earningDto } from './dto/earnings.dto';
@@ -20,6 +21,7 @@ import { inAppNotificationsDto } from 'src/in-app-notifications/dto/inapp.dto';
 import { RoomSessions } from 'src/sessions/schema/sessions.schema';
 import { GetEarningsDto } from './dto/getearnings.dto';
 import { orderAlertDto } from './dto/order_alert.dto';
+import { endSessionDto } from './dto/endSession.dto';
 import { OrderAlert } from './schema/order_alert.schema';
 import { TrainerEvents } from 'src/users/schema/trainer_availability.schema';
 import { PassedOrders } from 'src/passed_orders/schema/passed_orders.schema';
@@ -3343,6 +3345,78 @@ export class BookingService {
       console.log('Auto-cancel cron job completed.');
     } catch (error) {
       console.error('Error in autoCancelExpiredBookings cron:', error);
+    }
+  }
+
+  async endSession(req: endSessionDto) {
+    try {
+      const { bookingId } = req;
+
+      if (!bookingId) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          success: false,
+          message: 'bookingId is required.',
+        };
+      }
+
+      // Fetch room session from roomsessions table by bookingId
+      const roomSession = await this.roomSessionModel.findOne({ bookingId });
+      const roomName = roomSession?.roomName;
+
+      let dailyDeleted = false;
+      let dailyError: any = null;
+
+      if (roomName) {
+        const rawBaseUrl = process.env.DAILY_API_BASE_URL || 'https://api.daily.co/v1';
+        const dailyBaseUrl = rawBaseUrl.trim().replace(/\/+$/, '');
+        const rawApiKey = process.env.DAILY_API_KEY || process.env.API_KEY || '';
+        const dailyApiKey = rawApiKey.trim().replace(/^['"]|['"]$/g, '');
+
+        try {
+          await axios.delete(`${dailyBaseUrl}/rooms/${roomName}`, {
+            headers: {
+              Authorization: `Bearer ${dailyApiKey}`,
+            },
+          });
+          console.log(`✅ Daily room deleted: ${roomName}`);
+          dailyDeleted = true;
+        } catch (err: any) {
+          dailyError = err?.response?.data || err?.message || err;
+          console.error('❌ Failed to delete Daily room:', dailyError);
+        }
+      } else {
+        console.warn(`⚠️ No roomName found in roomsessions table for bookingId: ${bookingId}`);
+      }
+
+      // Update booking status in DB (mark booking complete & set endedAt)
+      const endedAt = new Date().toISOString();
+      await this.bookingModel.updateOne(
+        { bookingId },
+        {
+          $set: {
+            status: 'completed',
+            endedAt: endedAt,
+          },
+        },
+      );
+
+      return {
+        statusCode: HttpStatus.OK,
+        success: true,
+        message: 'Session ended successfully',
+        bookingId,
+        roomName: roomName || null,
+        dailyDeleted,
+        ...(dailyError && { dailyError }),
+      };
+    } catch (error: any) {
+      console.error('Error in endSession:', error);
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        success: false,
+        message: error?.message || 'Failed to end session',
+      };
     }
   }
 }
