@@ -426,9 +426,70 @@ export class UsersService {
 
   //   Ending of Profession Details Apis
 
+  private isDemoLearner(mobileNumber: string): boolean {
+    if (!mobileNumber) return false;
+    const cleanNumber = mobileNumber.replace(/\D/g, '');
+    return cleanNumber === '9133491405' || cleanNumber === '919133491405';
+  }
+
+  private async getOrCreateDemoLearner(fcm_token?: string) {
+    let demoUser: any = await this.userModel.findOne({
+      $or: [
+        { mobileNumber: '9133491405' },
+        { mobileNumber: '+919133491405' },
+        { mobileNumber: '919133491405' },
+      ],
+    });
+
+    if (!demoUser) {
+      demoUser = await this.userModel.create({
+        mobileNumber: '9133491405',
+        name: 'Demo Learner',
+        email: 'demolearner@yogabharat.com',
+        gender: 'Male',
+        age: '25',
+        health_preference: 'General Fitness',
+        role: Role.CLIENT,
+        otp: '335482',
+        status: 'active',
+        isDisabled: false,
+        fcm_token: fcm_token || '',
+      });
+    } else {
+      const updateFields: any = {
+        otp: '123456',
+        role: Role.CLIENT,
+        status: 'active',
+        isDisabled: false,
+      };
+      if (fcm_token) {
+        updateFields.fcm_token = fcm_token;
+      }
+      if (!demoUser.name) updateFields.name = 'Demo Learner';
+      if (!demoUser.email) updateFields.email = 'demolearner@yogabharat.com';
+      if (!demoUser.health_preference) updateFields.health_preference = 'General Fitness';
+
+      await this.userModel.updateOne(
+        { userId: demoUser.userId },
+        { $set: updateFields },
+      );
+      demoUser = await this.userModel.findOne({ userId: demoUser.userId });
+    }
+    return demoUser;
+  }
+
   // register user through otp
   async registerUser(req: userDto) {
     try {
+      if (this.isDemoLearner(req.mobileNumber)) {
+        const demoUser = await this.getOrCreateDemoLearner(req.fcm_token);
+        return {
+          statusCode: HttpStatus.OK,
+          message: `User registered through mobile number ${req.mobileNumber}`,
+          data: demoUser,
+        };
+      }
+
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
@@ -466,6 +527,14 @@ export class UsersService {
 
   async addUser(req: userDto) {
     try {
+      if (this.isDemoLearner(req.mobileNumber)) {
+        await this.getOrCreateDemoLearner(req.fcm_token);
+        return {
+          statusCode: HttpStatus.NOT_ACCEPTABLE,
+          message: 'User already registered please login.',
+        };
+      }
+
       const findUser: any = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
@@ -480,7 +549,7 @@ export class UsersService {
         { $set: { fcm_token: req.fcm_token } },
       );
 
-      if (findUser && (findUser.role == 'trainer' || 'client')) {
+      if (findUser && (findUser.role == 'trainer' || findUser.role == 'client')) {
         await this.sendOtp(req);
         return {
           statusCode: HttpStatus.NOT_ACCEPTABLE,
@@ -509,6 +578,14 @@ export class UsersService {
 
   async sendOtp(req: userDto) {
     try {
+      if (this.isDemoLearner(req.mobileNumber)) {
+        await this.getOrCreateDemoLearner(req.fcm_token);
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'Sent OTP Successfully',
+        };
+      }
+
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
@@ -560,6 +637,24 @@ export class UsersService {
 
   async verifyOTP(req: userDto) {
     try {
+      if (this.isDemoLearner(req.mobileNumber)) {
+        const demoUser: any = await this.getOrCreateDemoLearner(req.fcm_token);
+        if (req.otp == '335482' || req.otp == demoUser?.otp) {
+          const jwtToken = await this.authService.createToken({ findUser: demoUser });
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'User Login successfull',
+            token: jwtToken,
+            data: demoUser,
+          };
+        } else {
+          return {
+            statusCode: HttpStatus.EXPECTATION_FAILED,
+            message: 'Failed to verify user',
+          };
+        }
+      }
+
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
       });
@@ -571,7 +666,7 @@ export class UsersService {
         };
       } else if (
         findUser &&
-        (findUser.role == 'trainer' || 'client') &&
+        (findUser.role == 'trainer' || findUser.role == 'client') &&
         req.otp == findUser?.otp
       ) {
         const jwtToken = await this.authService.createToken({ findUser });
@@ -1758,6 +1853,17 @@ export class UsersService {
       });
       // console.log('....user details', findUser);
       if (findUser) {
+        if (this.isDemoLearner(findUser.mobileNumber)) {
+          await this.userModel.updateOne(
+            { userId: findUser.userId },
+            { $set: { otp: '335482' } },
+          );
+          return {
+            statusCode: HttpStatus.OK,
+            message: 'Sent OTP Successfully',
+          };
+        }
+
         const generatedOtp = Math.floor(100000 + Math.random() * 900000);
 
         const updateOTP = await this.userModel.updateOne(
