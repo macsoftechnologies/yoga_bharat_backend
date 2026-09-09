@@ -492,6 +492,8 @@ export class UsersService {
 
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
+        isDeleted: { $ne: true },
+        status: { $ne: 'deleted' },
       });
       if (findUser?.status == 'inactive') {
         return {
@@ -537,6 +539,8 @@ export class UsersService {
 
       const findUser: any = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
+        isDeleted: { $ne: true },
+        status: { $ne: 'deleted' },
       });
       if (findUser?.status == "inactive") {
         return {
@@ -544,10 +548,12 @@ export class UsersService {
           message: "User has been deactivated. Please contact admin."
         }
       }
-      await this.userModel.updateOne(
-        { userId: findUser.userId },
-        { $set: { fcm_token: req.fcm_token } },
-      );
+      if (findUser) {
+        await this.userModel.updateOne(
+          { userId: findUser.userId },
+          { $set: { fcm_token: req.fcm_token } },
+        );
+      }
 
       if (findUser && (findUser.role == 'trainer' || findUser.role == 'client')) {
         await this.sendOtp(req);
@@ -588,9 +594,18 @@ export class UsersService {
 
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
+        isDeleted: { $ne: true },
+        status: { $ne: 'deleted' },
       });
       console.log('....user details', findUser);
       if (findUser) {
+        if (findUser.status == 'inactive') {
+          return {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: 'User account has been deactivated. Please contact Admin.',
+          };
+        }
+
         const generatedOtp = Math.floor(100000 + Math.random() * 900000);
 
         const updateOTP = await this.userModel.updateOne(
@@ -657,7 +672,15 @@ export class UsersService {
 
       const findUser = await this.userModel.findOne({
         mobileNumber: req.mobileNumber,
+        isDeleted: { $ne: true },
+        status: { $ne: 'deleted' },
       });
+      if (findUser && findUser.status == 'inactive') {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'User account has been deactivated. Please contact Admin.',
+        };
+      }
       if (findUser && !findUser.role && req.otp == findUser?.otp) {
         return {
           statusCode: HttpStatus.OK,
@@ -1931,24 +1954,72 @@ export class UsersService {
     }
   }
 
+  private async anonymizeUserData(user: any) {
+    const timestamp = Date.now();
+    const scrambledMobile = user.mobileNumber
+      ? `deleted_${timestamp}_${user.mobileNumber}`
+      : `deleted_${timestamp}_${user.userId}`;
+    const scrambledEmail = user.email
+      ? `deleted_${timestamp}_${user.email}`
+      : null;
+
+    // 1. Anonymize user profile and wipe PII while preserving the record for historical references ($lookup)
+    await this.userModel.updateOne(
+      { userId: user.userId },
+      {
+        $set: {
+          name: 'Deleted User',
+          mobileNumber: scrambledMobile,
+          email: scrambledEmail,
+          profile_pic: null,
+          journey_images: [],
+          yoga_video: null,
+          account_no: null,
+          ifsc_code: null,
+          account_branch: null,
+          branch_address: null,
+          recipient_name: null,
+          ekyc_status: null,
+          otp: null,
+          fcm_token: null,
+          gender: null,
+          age: null,
+          experience: null,
+          health_preference: null,
+          professional_details: null,
+          reject_reason: null,
+          reject_type: null,
+          status: 'deleted',
+          isDeleted: true,
+          isDisabled: true,
+          deletedAt: new Date(),
+        },
+      },
+    );
+
+    // 2. Clean up associated non-historical / active records
+    await Promise.allSettled([
+      this.trainerEventsModel.deleteMany({ trainerId: user.userId }),
+      this.certificateModel.deleteMany({ userId: user.userId }),
+      this.inAppNotificationModel.deleteMany({ userId: user.userId }),
+    ]);
+  }
+
   async deleteUser(req: userDeleteDto) {
     try {
       const findUser = await this.userModel.findOne({ userId: req.userId });
+      if (!findUser) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'User not found',
+        };
+      }
       if (req.otp == findUser?.otp) {
-        const deleteUser = await this.userModel.updateOne(
-          { userId: req.userId },
-          {
-            $set: {
-              status: 'inactive',
-            },
-          },
-        );
-        if (deleteUser) {
-          return {
-            statusCode: HttpStatus.OK,
-            message: 'User deleted successfully',
-          };
-        }
+        await this.anonymizeUserData(findUser);
+        return {
+          statusCode: HttpStatus.OK,
+          message: 'User deleted successfully',
+        };
       } else {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -1958,7 +2029,7 @@ export class UsersService {
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: error,
+        message: error.message || error,
       };
     }
   }
@@ -2217,18 +2288,18 @@ export class UsersService {
 
   async hardDeleteUser(req: userDto) {
     try {
-      const deleteUser = await this.userModel.deleteOne({ userId: req.userId });
-      if (deleteUser.deletedCount > 0) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: "User deleted successfully",
-        };
-      } else {
+      const findUser = await this.userModel.findOne({ userId: req.userId });
+      if (!findUser) {
         return {
           statusCode: HttpStatus.NOT_FOUND,
-          message: "User not found",
+          message: 'User not found',
         };
       }
+      await this.anonymizeUserData(findUser);
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'User permanently deleted and anonymized successfully',
+      };
     } catch (error) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
