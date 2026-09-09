@@ -564,7 +564,7 @@ export class UsersService {
       } else if (findUser && !findUser.role) {
         await this.sendOtp(req);
         return {
-          statusCode: HttpStatus.CONFLICT,
+          statusCode: HttpStatus.NOT_ACCEPTABLE,
           message:
             'Already Registered but verify otp and provide Details of your profile.',
         };
